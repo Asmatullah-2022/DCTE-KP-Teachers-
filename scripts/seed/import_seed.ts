@@ -4,11 +4,17 @@
  * Imports grades.json, subjects.json (if present), academic_calendar.json,
  * documents.json, and curriculum.json (if present) into Firestore.
  *
- * `subjects.json` and `curriculum.json` are intentionally NOT included by
- * default (only their `*_template.example.json` counterparts are) because
- * this project could not access the official PDF's actual text — see
- * README.md "Initial Content Import" for how to produce real, verified
- * files before running this with those two included.
+ * `subjects.json` and `curriculum.json` are NOT committed to this repo by
+ * default — this sandbox could not reach dcte.kpese.gov.pk to read the
+ * official PDF's actual text (see README.md "Initial Content Import").
+ * Generate real ones with:
+ *
+ *   cd scripts && npm install && npm run import:pdf -- /path/to/the-real-pdf.pdf
+ *
+ * which writes real seed/subjects.json + seed/curriculum.json from the
+ * PDF's actual content (see ../import_dcte_pdf.ts). `subjects.schema-example.json`
+ * / `curriculum.schema-example.json` in this folder are field-shape
+ * references only, not data to import.
  *
  * Usage:
  *   1. Download a service-account key for your Firebase project (Firebase

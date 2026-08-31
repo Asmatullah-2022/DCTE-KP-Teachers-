@@ -2,16 +2,19 @@
   "name": "dcte-kp-teachers-scripts",
   "version": "1.0.0",
   "private": true,
-  "description": "Admin/one-off Node scripts (Firestore seeding) — never bundled into the Flutter app or Cloud Functions deploy.",
+  "description": "Admin/one-off Node scripts (Firestore seeding, DCTE PDF import) — never bundled into the Flutter app or Cloud Functions deploy.",
   "scripts": {
-    "seed": "ts-node seed/import_seed.ts"
+    "seed": "ts-node seed/import_seed.ts",
+    "import:pdf": "ts-node import_dcte_pdf.ts"
   },
   "dependencies": {
-    "firebase-admin": "^12.6.0"
+    "firebase-admin": "^12.6.0",
+    "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3",
-    "@types/node": "^20.16.11"
+    "@types/node": "^20.16.11",
+    "@types/pdf-parse": "^1.1.4"
   }
 }

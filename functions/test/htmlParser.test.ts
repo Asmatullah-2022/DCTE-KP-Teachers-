@@ -8,6 +8,7 @@ const config: SourceConfig = {
   listUrl: 'https://example.gov.pk/notifications/',
   department: 'DCTE',
   linkSelector: 'a[href]',
+  verificationStatus: 'NEEDS_LIVE_VERIFICATION',
 };
 
 describe('normalizeUrl', () => {

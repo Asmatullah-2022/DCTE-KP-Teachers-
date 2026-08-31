@@ -8,6 +8,26 @@ function requireAdmin(request: { auth?: { token?: Record<string, unknown> } }): 
   }
 }
 
+/**
+ * List documents awaiting admin review, most recently detected first —
+ * the admin-review queue for the DETECTED/DOWNLOADED/EXTRACTED/
+ * PENDING_REVIEW states.
+ */
+export const getPendingDocuments = onCall(async (request) => {
+  requireAdmin(request);
+  const limit = Math.min(Number(request.data?.limit) || 50, 200);
+  const db = getFirestore();
+  const snap = await db
+    .collection('documents')
+    .where('status', 'in', ['detected', 'downloaded', 'extracted', 'pending_review'])
+    .orderBy('updatedAt', 'desc')
+    .limit(limit)
+    .get();
+  return {
+    documents: snap.docs.map((d) => ({ documentId: d.id, ...d.data() })),
+  };
+});
+
 /** Approve a pending document: marks it verified. Does NOT publish it. */
 export const approveDocument = onCall(async (request) => {
   requireAdmin(request);

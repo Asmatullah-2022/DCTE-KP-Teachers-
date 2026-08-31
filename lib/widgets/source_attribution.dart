@@ -47,13 +47,24 @@ class SourceAttribution extends StatelessWidget {
           const SizedBox(height: 6),
           InkWell(
             onTap: () => launchUrl(Uri.parse(sourceUrl), mode: LaunchMode.externalApplication),
-            child: Text(
-              'View Original Source',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.primaryGreen,
-                    decoration: TextDecoration.underline,
-                    fontWeight: FontWeight.w600,
-                  ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  sourceUrl.toLowerCase().endsWith('.pdf') ? Icons.picture_as_pdf_outlined : Icons.open_in_new,
+                  size: 15,
+                  color: AppTheme.primaryGreen,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  sourceUrl.toLowerCase().endsWith('.pdf') ? 'Open Original PDF' : 'View Original Source',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.primaryGreen,
+                        decoration: TextDecoration.underline,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
             ),
           ),
         ],

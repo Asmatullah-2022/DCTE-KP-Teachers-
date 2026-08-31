@@ -1,20 +1,39 @@
 /**
  * Configurable per-source selectors for HTML monitoring.
  *
- * IMPORTANT: This environment could not reach dcte.kpese.gov.pk or
- * kpese.gov.pk to inspect live markup (outbound access was blocked), so the
- * selectors below are best-effort, conservative defaults for a typical
- * WordPress site (both domains are WordPress-based government sites), NOT
- * verified against the live DOM. Before relying on automated sync in
- * production:
- *   1. Open each source URL in a browser, inspect the notification/document
- *      list markup, and update `linkSelector` / `dateSelector` accordingly.
- *   2. Run `npm run shell` and call `forceSyncSource` against one source to
- *      confirm it finds the expected links.
- *   3. Until verified, use the admin panel's manual import to add documents
- *      — never publish auto-detected items without review (see
- *      DOCUMENT_PIPELINE in sync/checkOfficialSources.ts).
+ * NEEDS_LIVE_VERIFICATION
+ * ------------------------
+ * Every `linkSelector` / `titleSelector` / `dateSelector` below is tagged
+ * `verificationStatus: 'NEEDS_LIVE_VERIFICATION'`. This build's network
+ * egress to dcte.kpese.gov.pk and kpese.gov.pk is blocked by the sandbox's
+ * proxy (confirmed via both WebFetch and a direct `curl`, which returned
+ * `CONNECT tunnel failed, response 403` for the domain) — so the live DOM
+ * was never inspected. The selectors below are conservative, best-effort
+ * defaults for a typical WordPress site (both domains run WordPress), NOT
+ * confirmed against the real markup. Do not treat a `NEEDS_LIVE_VERIFICATION`
+ * source as production-ready.
+ *
+ * Before relying on automated sync in production:
+ *   1. Open each `listUrl` in a browser, inspect the notification/document
+ *      list markup (view-source or devtools), and update `linkSelector` /
+ *      `titleSelector` / `dateSelector` to match what you actually see.
+ *   2. Flip that source's `verificationStatus` to `'VERIFIED'` once you've
+ *      confirmed it (this is a code-level flag here; the matching
+ *      Firestore `sources/{sourceId}` doc also carries a `verified`
+ *      boolean the admin panel can toggle — see admin/adminApi.ts
+ *      `setSourceActive`).
+ *   3. Run `cd functions && npm run shell` and call `forceSyncSource({
+ *      sourceId })` against it to confirm it discovers the expected links
+ *      (check the resulting `sync_logs` document for `documentsFound`).
+ *   4. Until verified, treat anything the scheduled function detects as
+ *      unreliable and prefer the manual importer
+ *      (`scripts/import_dcte_pdf.ts`) / admin manual entry — never publish
+ *      an auto-detected item without a human reviewing it first (see the
+ *      DETECTED → DOWNLOADED → EXTRACTED → PENDING_REVIEW → VERIFIED →
+ *      PUBLISHED → FCM pipeline documented in sync/checkOfficialSources.ts).
  */
+export type SelectorVerificationStatus = 'NEEDS_LIVE_VERIFICATION' | 'VERIFIED';
+
 export interface SourceConfig {
   sourceId: string;
   name: string;
@@ -27,6 +46,12 @@ export interface SourceConfig {
   titleSelector?: string;
   /** Optional selector for a date element relative to each link's container. */
   dateSelector?: string;
+  /**
+   * Whether `linkSelector`/`titleSelector`/`dateSelector` have been checked
+   * against the live site. Always `'NEEDS_LIVE_VERIFICATION'` out of the
+   * box — see the module doc comment above.
+   */
+  verificationStatus: SelectorVerificationStatus;
 }
 
 export const SOURCE_CONFIGS: SourceConfig[] = [
@@ -40,6 +65,7 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     linkSelector: 'a[href$=".pdf"], article a[href]',
     titleSelector: undefined,
     dateSelector: 'time, .entry-date, .post-date',
+    verificationStatus: 'NEEDS_LIVE_VERIFICATION',
   },
   {
     sourceId: 'kpese_notifications',
@@ -50,5 +76,10 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     linkSelector: 'article a[href], .post a[href]',
     titleSelector: '.entry-title, h2, h3',
     dateSelector: 'time, .entry-date, .post-date',
+    verificationStatus: 'NEEDS_LIVE_VERIFICATION',
   },
 ];
+
+/** The official semester-wise curriculum PDF — the app's seed source document. */
+export const DCTE_SEMESTER_NOTIFICATION_PDF_URL =
+  'https://dcte.kpese.gov.pk/wp-content/uploads/Revised-Notification-Semester-wise-Course-Grade-I-VIII-final-draft.pdf';

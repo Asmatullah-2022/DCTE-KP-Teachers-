@@ -2,9 +2,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum DocumentStatus { detected, downloaded, extracted, pendingReview, verified, published, rejected }
 
+/// Cloud Functions (functions/src/sync/checkOfficialSources.ts) write
+/// snake_case status strings (e.g. "pending_review"); this normalizes
+/// either snake_case or camelCase before matching the enum.
 DocumentStatus documentStatusFromString(String? value) {
+  final normalized = value?.replaceAllMapped(
+    RegExp(r'_([a-z])'),
+    (m) => m.group(1)!.toUpperCase(),
+  );
   return DocumentStatus.values.firstWhere(
-    (s) => s.name == value,
+    (s) => s.name == normalized,
     orElse: () => DocumentStatus.pendingReview,
   );
 }
