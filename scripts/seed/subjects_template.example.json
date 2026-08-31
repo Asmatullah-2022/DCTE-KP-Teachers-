@@ -1,0 +1,11 @@
+[
+  {
+    "_comment": "TEMPLATE ONLY — duplicate as subjects.json after confirming each subject's exact name and which grades it applies to from the official notification/scheme of studies. Do not guess a subject list from general curricula.",
+    "subjectId": "mathematics",
+    "name": "REPLACE WITH EXACT SUBJECT NAME FROM SOURCE",
+    "nameUrdu": null,
+    "gradeIds": ["grade-5"],
+    "sortOrder": 0,
+    "active": true
+  }
+]

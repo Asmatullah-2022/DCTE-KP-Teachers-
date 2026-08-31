@@ -1,0 +1,79 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../core/constants/app_constants.dart';
+import '../models/academic_calendar_model.dart';
+import '../models/grade_model.dart';
+import '../models/notification_model.dart';
+import '../core/utils/semester_calculator.dart';
+import '../repositories/academic_calendar_repository.dart';
+import '../repositories/curriculum_repository.dart';
+import '../repositories/documents_repository.dart';
+import '../repositories/notifications_repository.dart';
+import '../repositories/search_repository.dart';
+import '../services/cache_service.dart';
+import '../services/connectivity_service.dart';
+import '../services/favorites_service.dart';
+import '../services/fcm_service.dart';
+
+// --- Firebase singletons -----------------------------------------------
+
+final firestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
+final functionsProvider = Provider<FirebaseFunctions>((ref) => FirebaseFunctions.instance);
+
+// --- Services (initialized in main() before runApp, overridden here) ---
+
+final cacheServiceProvider = Provider<CacheService>((ref) {
+  throw UnimplementedError('cacheServiceProvider must be overridden in main()');
+});
+
+final favoritesServiceProvider = Provider<FavoritesService>((ref) {
+  throw UnimplementedError('favoritesServiceProvider must be overridden in main()');
+});
+
+final fcmServiceProvider = Provider<FcmService>((ref) => FcmService());
+
+final connectivityServiceProvider = Provider<ConnectivityService>((ref) => ConnectivityService());
+
+final isOnlineProvider = StreamProvider<bool>((ref) => ref.watch(connectivityServiceProvider).onStatusChange);
+
+// --- Repositories ---------------------------------------------------------
+
+final curriculumRepositoryProvider =
+    Provider((ref) => CurriculumRepository(ref.watch(firestoreProvider)));
+
+final notificationsRepositoryProvider =
+    Provider((ref) => NotificationsRepository(ref.watch(firestoreProvider)));
+
+final documentsRepositoryProvider =
+    Provider((ref) => DocumentsRepository(ref.watch(firestoreProvider)));
+
+final academicCalendarRepositoryProvider =
+    Provider((ref) => AcademicCalendarRepository(ref.watch(firestoreProvider)));
+
+final searchRepositoryProvider = Provider((ref) => SearchRepository(ref.watch(firestoreProvider)));
+
+// --- Derived data ---------------------------------------------------------
+
+final gradesProvider = StreamProvider<List<GradeModel>>(
+  (ref) => ref.watch(curriculumRepositoryProvider).watchGrades(),
+);
+
+final notificationsFeedProvider = StreamProvider.family<List<NotificationModel>, NotificationCategory?>(
+  (ref, category) => ref.watch(notificationsRepositoryProvider).watchFeed(category: category),
+);
+
+final academicCalendarProvider = StreamProvider<List<AcademicCalendarModel>>(
+  (ref) => ref.watch(academicCalendarRepositoryProvider).watchAll(),
+);
+
+final selectedZoneProvider = StateProvider<SemesterZone>((ref) => SemesterZone.summer);
+
+final currentSemesterProvider = Provider<AcademicCalendarModel?>((ref) {
+  final calendar = ref.watch(academicCalendarProvider).value ?? const [];
+  final zone = ref.watch(selectedZoneProvider);
+  return SemesterCalculator.currentSemester(calendar: calendar, zone: zone, now: DateTime.now());
+});
+
+final lastSyncedAtProvider = Provider<DateTime?>((ref) => ref.watch(cacheServiceProvider).lastSyncedAt);

@@ -1,0 +1,46 @@
+[
+  {
+    "calendarId": "2025-26-summer-s1",
+    "session": "2025-26",
+    "zone": "summer",
+    "semester": "Semester I",
+    "startDate": "2025-09-01",
+    "endDate": "2025-12-31",
+    "label": "Summer Zone — Semester I",
+    "sourceDocumentId": "dcte-semester-notification-2025-26",
+    "verified": false
+  },
+  {
+    "calendarId": "2025-26-summer-s2",
+    "session": "2025-26",
+    "zone": "summer",
+    "semester": "Semester II",
+    "startDate": "2026-01-16",
+    "endDate": "2026-05-31",
+    "label": "Summer Zone — Semester II",
+    "sourceDocumentId": "dcte-semester-notification-2025-26",
+    "verified": false
+  },
+  {
+    "calendarId": "2025-26-winter-s1",
+    "session": "2025-26",
+    "zone": "winter",
+    "semester": "Semester I",
+    "startDate": "2025-03-01",
+    "endDate": "2025-06-30",
+    "label": "Winter Zone — Semester I",
+    "sourceDocumentId": "dcte-semester-notification-2025-26",
+    "verified": false
+  },
+  {
+    "calendarId": "2025-26-winter-s2",
+    "session": "2025-26",
+    "zone": "winter",
+    "semester": "Semester II",
+    "startDate": "2025-08-01",
+    "endDate": "2025-12-15",
+    "label": "Winter Zone — Semester II",
+    "sourceDocumentId": "dcte-semester-notification-2025-26",
+    "verified": false
+  }
+]

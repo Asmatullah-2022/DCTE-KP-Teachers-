@@ -1,0 +1,78 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null &&
+        request.auth.token.admin == true;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // ---- Public, read-only reference data --------------------------------
+    match /grades/{gradeId} {
+      allow read: if resource.data.active == true;
+      allow write: if isAdmin();
+    }
+
+    match /subjects/{subjectId} {
+      allow read: if resource.data.active == true;
+      allow write: if isAdmin();
+    }
+
+    // Curriculum items are public once published (needsVerification does
+    // not block reads — the UI surfaces a "needs verification" badge — but
+    // unpublished/draft items, if ever modeled, would be admin-only).
+    match /curriculum/{curriculumId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /academic_calendar/{calendarId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Documents: only published + verified rows are publicly readable.
+    // Pending/rejected rows stay admin-only until moved to "published".
+    match /documents/{documentId} {
+      allow read: if resource.data.status == 'published' && resource.data.verified == true;
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Notifications: only verified notifications are publicly readable.
+    match /notifications/{notificationId} {
+      allow read: if resource.data.isVerified == true;
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Sources / sync logs are operational data — admin only.
+    match /sources/{sourceId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /sync_logs/{syncId} {
+      allow read: if isAdmin();
+      allow write: if false; // written only by Cloud Functions (Admin SDK bypasses rules)
+    }
+
+    // app_config: small set of public, read-only display fields
+    // (e.g. lastSyncedAt, currentSession). Never store secrets here.
+    match /app_config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Users: a signed-in user may only read/write their own profile.
+    // Anonymous usage (no account) never touches this collection in v1.
+    match /users/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+  }
+}

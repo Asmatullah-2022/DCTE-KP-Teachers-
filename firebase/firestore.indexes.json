@@ -1,0 +1,100 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "subjects",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "active", "order": "ASCENDING" },
+        { "fieldPath": "gradeIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "sortOrder", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "curriculum",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "gradeId", "order": "ASCENDING" },
+        { "fieldPath": "subjectId", "order": "ASCENDING" },
+        { "fieldPath": "semester", "order": "ASCENDING" },
+        { "fieldPath": "unitNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isVerified", "order": "ASCENDING" },
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "publishedDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isVerified", "order": "ASCENDING" },
+        { "fieldPath": "publishedDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "documents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "documentType", "order": "ASCENDING" },
+        { "fieldPath": "publishedDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "documents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "publishedDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "grades",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "active", "order": "ASCENDING" },
+        { "fieldPath": "sortOrder", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "academic_calendar",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "zone", "order": "ASCENDING" },
+        { "fieldPath": "startDate", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "grades",
+      "fieldPath": "searchKeywords",
+      "indexes": [{ "arrayConfig": "CONTAINS", "queryScope": "COLLECTION" }]
+    },
+    {
+      "collectionGroup": "subjects",
+      "fieldPath": "searchKeywords",
+      "indexes": [{ "arrayConfig": "CONTAINS", "queryScope": "COLLECTION" }]
+    },
+    {
+      "collectionGroup": "curriculum",
+      "fieldPath": "searchKeywords",
+      "indexes": [{ "arrayConfig": "CONTAINS", "queryScope": "COLLECTION" }]
+    },
+    {
+      "collectionGroup": "notifications",
+      "fieldPath": "searchKeywords",
+      "indexes": [{ "arrayConfig": "CONTAINS", "queryScope": "COLLECTION" }]
+    },
+    {
+      "collectionGroup": "documents",
+      "fieldPath": "searchKeywords",
+      "indexes": [{ "arrayConfig": "CONTAINS", "queryScope": "COLLECTION" }]
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/pubspec.lock
+
+# Android
+android/**/gradle-wrapper.jar
+android/.gradle/
+android/captures/
+android/local.properties
+android/**/GeneratedPluginRegistrant.java
+android/key.properties
+*.jks
+*.keystore
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# Firebase (NEVER commit real config/secrets)
+lib/config/firebase_options.dart.local
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+firebase-debug.log
+.firebase/
+functions/lib/
+functions/node_modules/
+functions/.env
+functions/service-account*.json
+serviceAccountKey.json
+
+# Env
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Misc
+.DS_Store
