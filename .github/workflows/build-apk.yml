@@ -1,0 +1,99 @@
+name: Build Android APK
+
+# Runs automatically on pushes/PRs that touch Flutter source, AND supports
+# an on-demand manual run (Actions tab -> Build Android APK -> Run workflow)
+# for when you just want a fresh APK without pushing a change — this covers
+# both "build on every change" and "let me trigger a build myself" in one
+# workflow rather than two near-duplicates.
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - 'analysis_options.yaml'
+      - 'android/**'
+      - '.github/workflows/build-apk.yml'
+  pull_request:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Optional note for why this build was triggered manually'
+        required: false
+        default: ''
+
+# Cancel a superseded run on the same branch/PR so pushes don't queue up.
+concurrency:
+  group: build-apk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: flutter analyze, test, build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java (required by the Android Gradle build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      # This repo intentionally ships without android/ (see README §1/§3) —
+      # a working Gradle project, including the binary gradle-wrapper.jar,
+      # can't be hand-authored reliably. Generate it here if it isn't
+      # already committed (e.g. once you run `flutter create .` locally and
+      # commit android/ yourself, this step becomes a no-op and your
+      # committed platform config is used instead).
+      - name: Generate android/ platform folder if missing
+        run: |
+          if [ ! -d android ]; then
+            echo "No android/ directory found — running 'flutter create .' to generate it."
+            flutter create . --org pk.gov.kp.dcte --project-name dcte_kp_teachers --platforms=android
+          else
+            echo "android/ already exists — using the committed platform config."
+          fi
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: flutter analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: flutter test
+        run: flutter test
+
+      # NOTE ON FIREBASE CONFIG: lib/config/firebase_options.dart ships with
+      # PLACEHOLDER values (see that file and README §6) until you run
+      # `flutterfire configure` with your own Firebase project. This
+      # workflow builds the APK as-is — it compiles and installs fine, but
+      # won't actually reach Firebase at runtime until you replace that
+      # file with real config (either by committing it — only do this for
+      # a private repo, since it's not a secret-free file to publish widely
+      # — or by wiring it in as a repo secret restored by an extra step
+      # here). This is a real limitation, not a bug: CI can't know your
+      # Firebase project for you.
+      - name: flutter build apk --release
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dcte-kp-teachers-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14

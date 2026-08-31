@@ -1,4 +1,4 @@
-import { getFirestore, FieldValue, DocumentReference } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, DocumentReference, Timestamp } from 'firebase-admin/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
@@ -7,6 +7,7 @@ import { SOURCE_CONFIGS, SourceConfig } from '../sources/sourceConfig';
 import { politeFetch, checkRobotsAllowed } from '../utils/http';
 import { extractLinks } from '../parsers/htmlParser';
 import { extractPdfText, extractCurriculumCandidates } from '../parsers/pdfParser';
+import { classifyCategory, parseLooseDate } from '../parsers/classify';
 import { sha256 } from '../utils/hash';
 import { startSyncLog, SyncCounts } from './syncLogger';
 
@@ -73,14 +74,24 @@ async function syncOneSource(config: SourceConfig): Promise<void> {
 
         if (existingSnap.empty) {
           // DETECTED
+          const guessedDate = parseLooseDate(link.publishedDateGuess);
           const docRef = await db.collection('documents').add({
             title: link.title,
             titleUrdu: null,
             documentType: link.isPdf ? 'Notification' : 'Webpage',
             department: config.department,
-            publishedDate: null,
+            category: classifyCategory(link.title),
+            publishedDate: guessedDate ? Timestamp.fromDate(guessedDate) : null,
             notificationNumber: null,
             sourceUrl: link.url,
+            // documentUrl mirrors sourceUrl for a link that's already a
+            // direct file (the common case for this source's selector).
+            // If a future source instead links to an announcement PAGE
+            // that embeds the actual PDF elsewhere, documentUrl stays
+            // null until a page-level fetch to resolve the real file link
+            // is added — not yet implemented, so it's left honestly null
+            // rather than guessed.
+            documentUrl: link.isPdf ? link.url : null,
             storageUrl: null,
             fileHash: null,
             fileSize: null,

@@ -13,7 +13,10 @@ class AcademicCalendarModel {
   final DateTime endDate;
   final String label;
   final String? sourceDocumentId;
+  final int? sourcePage;
   final bool verified;
+  final int? examWeightagePercent;
+  final String? policyNote;
 
   const AcademicCalendarModel({
     required this.calendarId,
@@ -24,7 +27,10 @@ class AcademicCalendarModel {
     required this.endDate,
     required this.label,
     this.sourceDocumentId,
+    this.sourcePage,
     this.verified = false,
+    this.examWeightagePercent,
+    this.policyNote,
   });
 
   bool containsDate(DateTime date) =>
@@ -40,7 +46,10 @@ class AcademicCalendarModel {
       endDate: (map['endDate'] as Timestamp).toDate(),
       label: map['label'] as String? ?? '',
       sourceDocumentId: map['sourceDocumentId'] as String?,
+      sourcePage: (map['sourcePage'] as num?)?.toInt(),
       verified: map['verified'] as bool? ?? false,
+      examWeightagePercent: (map['examWeightagePercent'] as num?)?.toInt(),
+      policyNote: map['policyNote'] as String?,
     );
   }
 

@@ -1,20 +1,22 @@
 [
   {
     "documentId": "dcte-semester-notification-2025-26",
-    "title": "Revised Notification: Semester-wise Course, Grade I-VIII",
+    "title": "Revised Notification Semester-wise Course Grade I-VIII",
     "titleUrdu": null,
     "documentType": "Notification",
-    "department": "DCTE",
-    "publishedDate": null,
-    "notificationNumber": null,
+    "department": "Directorate of Curriculum and Teacher Education, Khyber Pakhtunkhwa",
+    "publishedDate": "2025-09-04",
+    "notificationNumber": "4411-22/SSW/Semester Breakup",
     "sourceUrl": "https://dcte.kpese.gov.pk/wp-content/uploads/Revised-Notification-Semester-wise-Course-Grade-I-VIII-final-draft.pdf",
     "storageUrl": null,
-    "fileHash": null,
-    "fileSize": null,
-    "pageCount": null,
-    "summary": "Official DCTE notification defining the semester-wise course/scheme of studies for ECE and Grades I-VIII, Session 2025-26, across Summer and Winter zones.",
+    "fileHash": "d861cc394a11d7b3df0a742564e01a191b8ccba6890f0e1eac00d1ad216eccb3",
+    "_fileHashNote": "SHA-256 of the copy the project owner uploaded directly into this session (verified locally). Not yet cross-checked against a live download from dcte.kpese.gov.pk, since outbound access to that domain is blocked from this environment — re-verify (or let checkOfficialSources re-verify) once that's possible, and update this hash if they differ.",
+    "fileSize": 9655548,
+    "pageCount": 24,
+    "session": "2025-26",
+    "summary": "Official DCTE notification defining the semester-wise course/scheme of studies for ECE and Grades I-VIII, Session 2025-26, across Summer and Winter zones. Signed by Jaffar Mansoor Abbasi, Director, DCTE.",
     "aiSummary": null,
-    "status": "pending_review",
-    "verified": false
+    "status": "verified",
+    "verified": true
   }
 ]

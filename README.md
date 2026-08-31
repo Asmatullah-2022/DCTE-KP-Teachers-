@@ -32,28 +32,38 @@ environment and are called out explicitly rather than faked:
   adjust them against the live pages, then flip that flag to `'VERIFIED'`,
   before relying on automatic sync in production; see the file's header
   comment for the exact steps.
-- **The actual content of the official semester-notification PDF has never
-  been read by this project**, for the same reason. Per the app's own
-  accuracy rules ("never invent missing unit titles," "never silently
-  guess"), no curriculum unit data (subjects, unit titles) is fabricated
-  anywhere in this repo. What *is* seeded (`scripts/seed/grades.json`,
-  `academic_calendar.json`, `documents.json`) is data given directly in the
-  project brief. `scripts/import_dcte_pdf.ts` is the real, complete
-  extractor — run it locally once you have the PDF file to generate the
-  actual `scripts/seed/subjects.json` and `scripts/seed/curriculum.json`;
-  see §8 "Initial Content Import" for exactly how to get the PDF to it.
+- **The official semester-notification PDF has since been read.** The
+  project owner uploaded the actual 24-page "Revised Notification
+  Semester-wise Course Grade I-VIII" PDF (Session 2025-26) directly into
+  the session, and `scripts/import_dcte_pdf.ts` was built and iterated
+  against its real content (this environment still could not reach
+  `dcte.kpese.gov.pk` to download it itself). `scripts/seed/subjects.json`
+  (22 subjects) and `scripts/seed/curriculum.json` (1,323 records covering
+  ECE through Grade 8) now contain real, extracted data — see §8 for exact
+  counts and what's still rough (word order in some Urdu titles, mainly).
+  Every record still carries `needsVerification: true`; nothing is
+  auto-published without human review. `scripts/seed/*.schema-example.json`
+  remain as field-shape references only.
 - **The Flutter/Dart SDK was not available in this build environment**, so
   `flutter pub get` / `flutter build` were not run here. The code is
   written to compile against the dependency versions pinned in
-  `pubspec.yaml`; run the commands in §3 locally to verify and fix any
-  version drift (Flutter/Firebase plugin APIs move fairly often).
-- Android platform folders (`android/`) are **not included** — see §3,
-  step 1. Hand-authoring a working Gradle wrapper (`gradle-wrapper.jar` is
-  a binary file) is not reliable to do blind; `flutter create .` generates
-  it correctly and takes 10 seconds.
+  `pubspec.yaml`. A GitHub Actions workflow
+  (`.github/workflows/build-apk.yml`, see §16) now builds and tests the
+  app on every push and on demand, specifically so this doesn't block you
+  building on a phone with no local Flutter install — but its first real
+  run has not been observed yet (this repo has no CI history); watch the
+  Actions tab for the first run and treat any failure there as a real bug
+  to fix, the same as a local `flutter analyze`/`flutter test` failure.
+- Android platform folders (`android/`) are **not included** in the repo
+  — see §3, step 1, and §16 (the CI workflow generates them on the fly if
+  missing). Hand-authoring a working Gradle wrapper (`gradle-wrapper.jar`
+  is a binary file) is not reliable to do blind; `flutter create .`
+  generates it correctly and takes 10 seconds.
 
-Everything else — Dart source, Cloud Functions (TypeScript), Firestore
-rules/indexes, Storage rules, tests, seed scripts — is complete and real.
+Everything else — Dart source, Cloud Functions (TypeScript, verified with
+`tsc --noEmit` and `npm test` in this environment), Firestore
+rules/indexes, Storage rules, seed data, and the CI workflow — is complete
+and real.
 
 ---
 
@@ -291,29 +301,58 @@ query shape.
 ## 8. Initial content import
 
 `scripts/seed/import_seed.ts` imports, in order: `grades.json` →
-`subjects.json` (if present) → `academic_calendar.json` →
-`documents.json` → `curriculum.json` (if present).
+`subjects.json` → `academic_calendar.json` → `documents.json` →
+`curriculum.json`. **All five now contain real data extracted from the
+actual official PDF** (session 2025-26; see "How this was produced" below)
+— none of it is a placeholder or template.
 
-**Included and safe to import as-is:**
-- `grades.json` — ECE, Grade 1–8 (from the project brief).
-- `academic_calendar.json` — the Summer/Winter Semester I/II dates given in
-  the project brief, session 2025-26. Seeded with **`verified: false`** —
-  confirm them against the actual notification PDF before flipping to
-  `true` (or edit via the admin API).
-- `documents.json` — a single metadata row for the official semester
-  notification PDF itself (title, URL, department), `status:
-  pending_review`. This does **not** contain the PDF's internal content.
+- `grades.json` — ECE, Grade 1–8.
+- `academic_calendar.json` — Summer/Winter × Semester I/II dates, the
+  "Summer Zone follows Semester-I / Winter Zone follows Semester-II for
+  2025-26 with immediate effect" policy note, and the 45%/55% examination
+  weighting, all transcribed directly from page 1 of the real PDF and
+  cross-checked against its extracted text — `verified: true`.
+- `documents.json` — the notification's own metadata: title, full
+  department name, notification number (`4411-22/SSW/Semester Breakup`),
+  dated 2025-09-04, 24 pages, and the SHA-256/size of the exact file the
+  project owner uploaded (see `_fileHashNote` in that file for why it's
+  not yet cross-checked against a *live* download).
+- **`subjects.json` — 22 subjects**, real names read from the PDF: Urdu,
+  English, Mathematics, Hindko, Pashto, Seraiki, Khowar, Islamiyat,
+  Nazira-e-Quran, General Knowledge, Ethics for Non-Muslims, General
+  Science, Social Studies, Mutala-e-Quran, History, Geography, Computer
+  Education, Home Economics, Drawing, Arabic, Introduction to
+  Technologies, and one subject whose name in the source PDF is written
+  entirely in Urdu (subjectId `subject-d531ee040d`, appears to be Health &
+  Physical Education based on its unit titles, but the name is preserved
+  verbatim rather than translated/guessed — see below).
+- **`curriculum.json` — 1,323 records** spanning ECE through Grade 8,
+  every one with `sourceDocumentId` / `sourcePage` / `sourceUrl` /
+  `session` / `semester` / `unitNumber` / `unitTitle`, and every one
+  with **`needsVerification: true`** — none of this is presented as
+  final. Where the source itself has no itemized unit list (a few
+  regional-language entries just say e.g. "Page No. 01 to 18"), the note
+  itself is stored rather than invented per-lesson titles.
 
-**Not committed to this repo** (only `subjects.schema-example.json` /
-`curriculum.schema-example.json` field-shape references ship):
-`scripts/seed/subjects.json` and `scripts/seed/curriculum.json`. This
-build has never been able to reach `dcte.kpese.gov.pk` to read the
-official PDF's actual text, and the app's own accuracy rule is explicit —
-*never invent missing unit titles, never silently guess.* `scripts/import_dcte_pdf.ts`
-is the real, complete extraction pipeline for this — it just needs to run
-somewhere that has the PDF, which this sandbox is not.
+**Known quality limits — read before flipping `needsVerification` to
+`false` on anything:**
+- English-medium subjects (Math, English, Science, History, Geography,
+  Computer Education, etc.) extracted cleanly — titles read correctly
+  word-for-word in spot checks against the source pages.
+- Urdu/Arabic-script subjects (Urdu, Islamiyat, Nazira-e-Quran,
+  Mutala-e-Quran, Hindko/Pashto/Seraiki/Khowar's numbered entries)
+  extracted with **uncorrected word order** in places, and some titles
+  have stray fragments of an adjacent honorific phrase (a "ﷺ"/durood
+  formula rendered as many separate diacritic glyphs) bled in from a
+  neighboring line. This is a known, documented limitation — see
+  `scripts/import_dcte_pdf.ts`'s "URDU/ARABIC-SCRIPT TEXT" header comment
+  for why it isn't auto-corrected — not silently hidden. Every affected
+  row is still traceable to its exact `sourcePage`.
+- Re-run the importer with `--debug` (see below) any time to see the raw
+  reconstructed text next to what it parsed, if you want to manually
+  clean up a specific subject/grade.
 
-**How to import the real PDF (do this once you have the file):**
+**How this was produced (re-run this if the notification is revised):**
 
 ```bash
 # 1. Get the PDF onto a machine that can reach dcte.kpese.gov.pk (your own
@@ -325,41 +364,32 @@ cd scripts
 npm install
 
 # 3. (Optional) Preview what it detects without writing files, and see the
-#    raw text it reconstructed per page (useful if the real PDF's wording
-#    doesn't match the built-in patterns — see the script's header for
-#    which regexes to adjust):
+#    raw text it reconstructed per page/column (useful if a revised PDF's
+#    wording doesn't match the built-in patterns — see the script's header
+#    for which regexes/constants to adjust):
 npm run import:pdf -- ~/Downloads/Revised-Notification-Semester-wise-Course-Grade-I-VIII-final-draft.pdf --dry-run --debug
 
-# 4. Run it for real:
+# 4. Run it for real — this OVERWRITES scripts/seed/subjects.json and
+#    scripts/seed/curriculum.json:
 npm run import:pdf -- ~/Downloads/Revised-Notification-Semester-wise-Course-Grade-I-VIII-final-draft.pdf
 
-# This writes scripts/seed/subjects.json and scripts/seed/curriculum.json,
-# extracted directly from the PDF's real text — grade, subject, session,
-# semester, unit number, unit title (+ Urdu title where the script can
-# confidently isolate it), source page, and source URL on every row, with
-# needsVerification: true on all of them (see the script's header comment
-# for exactly what it does and doesn't attempt).
-
-# 5. Review both generated files against the PDF by hand — this is a
-#    pattern-matcher, not OCR/NLP comprehension, so treat its output as a
-#    first draft. Fix anything wrong, then flip needsVerification to false
-#    only for rows you've personally confirmed.
+# 5. Review the generated files against the PDF by hand, especially any
+#    Urdu-script rows (see "Known quality limits" above). Flip
+#    needsVerification to false only for rows you've personally confirmed.
 
 # 6. Import into Firestore:
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/serviceAccountKey.json npm run seed
 ```
 
-If the PDF turns out to be a scanned image with no text layer, the script
-detects that (fewer than ~200 characters of extractable text) and stops
-without writing anything — it will tell you to run OCR first (e.g.
+If a future PDF turns out to be a scanned image with no text layer, the
+script detects that (fewer than ~200 characters of extractable text) and
+stops without writing anything — it will tell you to run OCR first (e.g.
 `ocrmypdf input.pdf output-ocr.pdf`, or this project's own `pdf` skill) and
 re-run against the OCR'd file, or transcribe by hand using the
-`*.schema-example.json` files as a field reference. It will do the same —
-refuse to write files — if it extracts text but finds no recognizable
-`Grade` / `Semester` / `Unit N:` patterns, so you can fix its regexes
-(`GRADE_PATTERNS` / `SUBJECT_PATTERNS` / `UNIT_RE` near the top of the
-file) against the real wording instead of it silently producing nothing
-useful.
+`*.schema-example.json` files as a field reference. It does the same —
+refuses to write anything — if it extracts text but finds no recognizable
+grade/subject/unit patterns at all, so a layout change surfaces as a loud
+failure rather than silently producing nothing (or garbage).
 
 `import_seed.ts` also independently refuses to import any row that still
 contains the literal placeholder text `"REPLACE WITH ..."`, so an unedited
@@ -494,24 +524,40 @@ claims, rules, callable signatures) is already in place for it.
 
 `functions/src/sync/checkOfficialSources.ts` exports a `onSchedule`
 Cloud Function named **`checkOfficialSources`**, running `0 6 * * *` in
-`Asia/Karachi` (once daily). For each configured source (each currently
-marked `NEEDS_LIVE_VERIFICATION` — see §1) it:
+`Asia/Karachi` (once daily). It is **not** hard-coded to the one semester
+PDF — it walks whatever links `functions/src/parsers/htmlParser.ts` finds
+on each configured listing page (`SOURCE_CONFIGS` in
+`functions/src/sources/sourceConfig.ts`, currently the DCTE homepage and
+the KPESE notifications category page — both marked
+`NEEDS_LIVE_VERIFICATION`, see §1), so any new post/PDF KPESE or DCTE
+publishes going forward is picked up the same way. For each configured
+source it:
 
 1. Checks `robots.txt` for the source and skips (logging why) if disallowed.
 2. Politely fetches the listing page — identifying User-Agent, 15s
    timeout, up to 3 retries with exponential backoff, and it treats a
    403/429/401 response as "back off, don't bypass" rather than retrying
    aggressively (see `functions/src/utils/http.ts`).
-3. Extracts and normalizes candidate links (`functions/src/parsers/htmlParser.ts`).
+3. Extracts and normalizes candidate links, each with a best-effort
+   `category` (`functions/src/parsers/classify.ts`, keyword-based —
+   curriculum / assessment / teacherTraining / academicCalendar / policy
+   / notification) and a best-effort `publishedDate` parsed from whatever
+   date text sits near the link (left `null`, never guessed, if it can't
+   be parsed confidently).
 4. For each link, compares its normalized URL against existing `documents.sourceUrl` values:
-   - **New URL** → creates a `documents` row at `status: 'detected'`, then
-     (if it's a PDF) downloads it (`'downloaded'`), extracts its text with
-     `pdf-parse` and runs the conservative unit-candidate scan
-     (`'extracted'`, storing a text preview + candidate count — never a
-     `curriculum` row), and finally lands it at `'pending_review'`.
+   - **New URL** → creates a `documents` row at `status: 'detected'` with
+     `category`, `publishedDate` (if parsed), and `documentUrl` (mirrors
+     `sourceUrl` when the link is already a direct file — see the code
+     comment there for the current limit: a source that links to an
+     announcement *page* rather than the file itself isn't followed one
+     level deeper yet), then (if it's a PDF) downloads it (`'downloaded'`),
+     extracts its text with `pdf-parse` and runs the conservative
+     unit-candidate scan (`'extracted'`, storing a text preview + candidate
+     count — never a `curriculum` row), and finally lands it at
+     `'pending_review'`.
    - **Same URL, PDF, changed SHA-256 hash** → re-runs
      downloaded→extracted→pending_review on the existing row (resets
-     `verified: false`).
+     `verified: false`) — this is the duplicate-vs-changed detection.
    - **Same URL, same hash** → skipped (counted in `documentsSkipped`).
 5. Writes one `sync_logs` document with counts (`documentsFound/Added/Updated/Skipped`)
    and any errors, and updates the matching `sources` doc's
@@ -541,3 +587,44 @@ readable type. English + Urdu supported via
 (`nameUrdu`/`unitTitleUrdu`/`titleUrdu`) is rendered. No fake/sample data
 ever renders in the production UI — every empty/loading/error state is an
 explicit `ErrorStateView`, never a blank screen.
+
+---
+
+## 16. Building an APK without installing Flutter (GitHub Actions)
+
+`.github/workflows/build-apk.yml` builds and tests the app in the cloud —
+useful since this project is being developed from a phone with no local
+Flutter install. It runs automatically on every push/PR that touches
+`lib/`, `test/`, `pubspec.yaml`, or `android/`, **and** supports an
+on-demand manual run (one workflow covers both asks rather than two
+near-duplicate files):
+
+1. GitHub repo → **Actions** tab → **Build Android APK** (left sidebar) →
+   **Run workflow** button → pick the branch → **Run workflow**.
+2. Wait for it to finish (Flutter install + `flutter analyze` +
+   `flutter test` + `flutter build apk --release` — a few minutes).
+3. Open the finished run → **Artifacts** section at the bottom →
+   download `dcte-kp-teachers-release-apk` → unzip → `app-release.apk` →
+   transfer to your phone (e.g. via a cloud drive or `adb install`) and
+   install it (you'll need "install unknown apps" allowed for whichever
+   app you use to open it).
+
+What it does under the hood:
+- Checks out the repo, installs Java 17 + Flutter (stable channel).
+- Generates `android/` on the fly with `flutter create .` **only if** it
+  isn't already committed — so once you commit your own `android/` (e.g.
+  after running `flutterfire configure` locally, which edits Android
+  Gradle files), the workflow uses that instead of regenerating it.
+- Runs `flutter pub get`, `flutter analyze --no-fatal-infos`, `flutter test`.
+- Runs `flutter build apk --release` and uploads the resulting APK as a
+  workflow artifact (kept 14 days).
+
+**Important limitation:** this builds against whatever
+`lib/config/firebase_options.dart` is committed — the placeholder in this
+repo until you run `flutterfire configure` (§5) and commit the real one
+(or wire it in as a CI secret restored by an extra workflow step, if you'd
+rather not commit it to a public repo). The APK installs and runs, but
+won't reach Firebase until that's real. Also note: this workflow has not
+been observed running yet in this repository (no GitHub Actions history
+exists here) — treat its first real run as the actual test of it, the
+same as you would for the Flutter code itself.

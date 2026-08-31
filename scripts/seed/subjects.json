@@ -1,0 +1,319 @@
+[
+  {
+    "subjectId": "urdu",
+    "name": "Urdu",
+    "nameUrdu": null,
+    "gradeIds": [
+      "ece",
+      "grade-1",
+      "grade-2",
+      "grade-3",
+      "grade-4",
+      "grade-5",
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 0,
+    "active": true
+  },
+  {
+    "subjectId": "english",
+    "name": "English",
+    "nameUrdu": null,
+    "gradeIds": [
+      "ece",
+      "grade-1",
+      "grade-2",
+      "grade-3",
+      "grade-4",
+      "grade-5",
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 1,
+    "active": true
+  },
+  {
+    "subjectId": "mathematics",
+    "name": "Mathematics",
+    "nameUrdu": null,
+    "gradeIds": [
+      "ece",
+      "grade-1",
+      "grade-2",
+      "grade-3",
+      "grade-4",
+      "grade-5",
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 2,
+    "active": true
+  },
+  {
+    "subjectId": "hindko",
+    "name": "Hindko",
+    "nameUrdu": null,
+    "gradeIds": [
+      "ece",
+      "grade-1",
+      "grade-2",
+      "grade-3",
+      "grade-4",
+      "grade-5",
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 3,
+    "active": true
+  },
+  {
+    "subjectId": "pashto",
+    "name": "Pashto",
+    "nameUrdu": null,
+    "gradeIds": [
+      "ece",
+      "grade-1",
+      "grade-2",
+      "grade-3",
+      "grade-4",
+      "grade-5",
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 4,
+    "active": true
+  },
+  {
+    "subjectId": "seraiki",
+    "name": "Seraiki",
+    "nameUrdu": null,
+    "gradeIds": [
+      "ece",
+      "grade-1",
+      "grade-2",
+      "grade-3",
+      "grade-4",
+      "grade-5",
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 5,
+    "active": true
+  },
+  {
+    "subjectId": "khowar",
+    "name": "Khowar",
+    "nameUrdu": null,
+    "gradeIds": [
+      "ece",
+      "grade-1",
+      "grade-2",
+      "grade-3",
+      "grade-4",
+      "grade-5",
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 6,
+    "active": true
+  },
+  {
+    "subjectId": "islamiyat",
+    "name": "Islamiyat",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-1",
+      "grade-2",
+      "grade-3",
+      "grade-4",
+      "grade-5",
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 7,
+    "active": true
+  },
+  {
+    "subjectId": "nazira-e-quran",
+    "name": "Nazira-e-Quran",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-1",
+      "grade-2",
+      "grade-3",
+      "grade-4",
+      "grade-5"
+    ],
+    "sortOrder": 8,
+    "active": true
+  },
+  {
+    "subjectId": "general-knowledge",
+    "name": "General Knowledge",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-1",
+      "grade-2",
+      "grade-3"
+    ],
+    "sortOrder": 9,
+    "active": true
+  },
+  {
+    "subjectId": "ethics-for-non-muslims",
+    "name": "Ethics for Non-Muslims",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-3",
+      "grade-4",
+      "grade-5",
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 10,
+    "active": true
+  },
+  {
+    "subjectId": "general-science",
+    "name": "General Science",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-4",
+      "grade-5",
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 11,
+    "active": true
+  },
+  {
+    "subjectId": "social-studies",
+    "name": "Social Studies",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-4",
+      "grade-5"
+    ],
+    "sortOrder": 12,
+    "active": true
+  },
+  {
+    "subjectId": "mutala-e-quran",
+    "name": "Mutala-e-Quran",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 13,
+    "active": true
+  },
+  {
+    "subjectId": "history",
+    "name": "History",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 14,
+    "active": true
+  },
+  {
+    "subjectId": "geography",
+    "name": "Geography",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 15,
+    "active": true
+  },
+  {
+    "subjectId": "computer-education",
+    "name": "Computer Education",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 16,
+    "active": true
+  },
+  {
+    "subjectId": "home-economics",
+    "name": "Home Economics",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 17,
+    "active": true
+  },
+  {
+    "subjectId": "drawing",
+    "name": "Drawing",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 18,
+    "active": true
+  },
+  {
+    "subjectId": "subject-d531ee040d",
+    "name": "ن ا م س ج و ت ح ص تعلیم",
+    "nameUrdu": "ن ا م س ج و ت ح ص تعلیم",
+    "gradeIds": [
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 19,
+    "active": true
+  },
+  {
+    "subjectId": "arabic",
+    "name": "Arabic",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 20,
+    "active": true
+  },
+  {
+    "subjectId": "introduction-to-technologies",
+    "name": "Introduction to Technologies",
+    "nameUrdu": null,
+    "gradeIds": [
+      "grade-6",
+      "grade-7",
+      "grade-8"
+    ],
+    "sortOrder": 21,
+    "active": true
+  }
+]

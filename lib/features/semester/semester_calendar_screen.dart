@@ -73,8 +73,30 @@ class SemesterCalendarScreen extends ConsumerWidget {
                               '${DateFormat('MMM d, y').format(e.startDate)} – ${DateFormat('MMM d, y').format(e.endDate)}',
                             ),
                             if (e.label.isNotEmpty) Text(e.label, style: const TextStyle(color: Colors.black54)),
+                            if (e.examWeightagePercent != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Examination weightage: ${e.examWeightagePercent}%',
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                            if (e.policyNote != null) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(e.policyNote!, style: const TextStyle(fontSize: 12.5)),
+                              ),
+                            ],
                             const SizedBox(height: 8),
-                            SourceAttribution(department: 'DCTE / KPESE', sourceUrl: AppConstants.dcteBaseUrl),
+                            SourceAttribution(
+                              department: 'DCTE / KPESE',
+                              sourceUrl: AppConstants.dcteSemesterNotificationPdf,
+                              sourcePage: e.sourcePage,
+                            ),
                           ],
                         ),
                       ),
