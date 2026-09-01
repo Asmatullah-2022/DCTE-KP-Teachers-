@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["seed", "import_dcte_pdf.ts"]
+  "include": ["seed", "import_dcte_pdf.ts", "grant_admin.ts"]
 }

@@ -5,7 +5,8 @@
   "description": "Admin/one-off Node scripts (Firestore seeding, DCTE PDF import) — never bundled into the Flutter app or Cloud Functions deploy.",
   "scripts": {
     "seed": "ts-node seed/import_seed.ts",
-    "import:pdf": "ts-node import_dcte_pdf.ts"
+    "import:pdf": "ts-node import_dcte_pdf.ts",
+    "grant:admin": "ts-node grant_admin.ts"
   },
   "dependencies": {
     "firebase-admin": "^12.6.0",

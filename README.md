@@ -248,16 +248,37 @@ flutter build apk --release
 ### Grant yourself admin (for the admin-only Cloud Functions / rules)
 
 Admin status is a custom claim (`admin: true`) on a Firebase Auth user —
-there is no bundled admin UI/auth flow in this MVP (see §9). Set it with a
-one-off script using the Admin SDK:
+there is no bundled admin UI/auth flow in this MVP (see §9), and this
+claim is the *entire* admin system: every admin-only Cloud Function
+(`functions/src/admin/adminApi.ts`'s `requireAdmin`) and every Firestore
+rule (`firebase/firestore.rules`'s `isAdmin()`) checks exactly
+`request.auth.token.admin === true` and nothing else.
 
-```js
-// scripts/grant_admin.js (not included — small enough to paste ad hoc)
-const { initializeApp, applicationDefault } = require('firebase-admin/app');
-const { getAuth } = require('firebase-admin/auth');
-initializeApp({ credential: applicationDefault() });
-getAuth().setCustomUserClaims('<uid>', { admin: true }).then(() => process.exit(0));
-```
+**Exact steps** (full detail in `scripts/grant_admin.ts`'s header comment):
+
+1. Create the Firebase Auth user, if you haven't already: Firebase Console
+   → Authentication → Users → **Add user** (email/password is fine). Copy
+   their **UID** from that same list.
+2. Download a service-account key: Firebase Console → Project Settings
+   (gear icon) → **Service Accounts** tab → **Generate new private key**.
+   Save it *outside* this repo, e.g. `~/secrets/dcte-service-account.json`
+   — **never commit it** (already covered by `.gitignore`).
+3. Run:
+   ```bash
+   cd scripts
+   npm install
+   GOOGLE_APPLICATION_CREDENTIALS=~/secrets/dcte-service-account.json \
+     npm run grant:admin -- <uid>
+   ```
+4. That user must sign out and back in (or refresh their ID token) for the
+   claim to take effect — an already-issued token doesn't update
+   retroactively.
+5. To revoke later: same command with `--revoke` appended.
+
+Firebase Admin credentials (the service-account key) are used **only** by
+scripts you run locally with your own machine's environment variable —
+they are never embedded in `lib/` (the Flutter app) or committed anywhere
+in this repo.
 
 ---
 
@@ -281,8 +302,15 @@ getAuth().setCustomUserClaims('<uid>', { admin: true }).then(() => process.exit(
 Collections (see `lib/models/*.dart` for the Dart shape and
 `firebase/firestore.rules` for access control):
 
-`grades`, `subjects`, `curriculum`, `documents`, `notifications`,
-`academic_calendar`, `sources`, `sync_logs`, `users`, `app_config`.
+`grades`, `subjects`, `curriculum`, `curriculum_pending`, `documents`,
+`notifications`, `academic_calendar`, `sources`, `sync_logs`, `users`,
+`app_config`.
+
+`curriculum_pending` is **admin-only, never read by the app** — it's the
+staging area every extracted/imported curriculum row lands in first (see
+§8). A row only ever reaches the public `curriculum` collection via the
+`approveCurriculumRecord` callable, which a human triggers after reviewing
+it (§9).
 
 Public users get **read-only** access to published/verified data; all
 writes require the `admin` custom claim (`sync_logs` writes are Functions
@@ -333,6 +361,20 @@ actual official PDF** (session 2025-26; see "How this was produced" below)
   final. Where the source itself has no itemized unit list (a few
   regional-language entries just say e.g. "Page No. 01 to 18"), the note
   itself is stored rather than invented per-lesson titles.
+
+**What `npm run seed` actually does with those 1,323 rows — none of them
+go straight to the public app.** `importCurriculum` (in
+`scripts/seed/import_seed.ts`) checks each row's `needsVerification` flag:
+a row marked `false` is written to the public `curriculum` collection; a
+row marked `true` (currently **all 1,323** — none have been human-reviewed
+yet) is written to `curriculum_pending` instead, an admin-only collection
+the Flutter app's queries never touch (see §7). So as of this PDF import,
+running `npm run seed` populates `curriculum_pending` with all 1,323 rows
+and leaves the public `curriculum` collection with **0** — exactly
+matching the "don't auto-publish unverified curriculum" rule. A record
+only reaches the public collection when an admin calls
+`approveCurriculumRecord` on it (§9) after actually checking it against
+the PDF.
 
 **Known quality limits — read before flipping `needsVerification` to
 `false` on anything:**
@@ -413,6 +455,17 @@ the `admin` custom claim:
   → also sends the FCM push.
 - `setSourceActive({ sourceId, active })`
 - `forceSyncSource({ sourceId })`
+- `getPendingCurriculum({ gradeId?, subjectId?, limit? })` → the
+  `curriculum_pending` review queue (§7/§8), optionally scoped to one
+  grade/subject so you can work through it a subject at a time instead of
+  all 1,323 rows at once.
+- `approveCurriculumRecord({ curriculumId, editedFields? })` → the ONLY
+  way a curriculum row reaches the public `curriculum` collection.
+  `editedFields` lets you fix a row (e.g. a cleaned-up `unitTitle`) as
+  part of approving it; the promoted copy always gets
+  `needsVerification: false` and the pending copy is deleted.
+- `rejectCurriculumRecord({ curriculumId })` → deletes a mis-parsed row
+  from the queue without publishing it.
 
 The fastest way to drive these today is the Firebase Functions shell
 (`cd functions && npm run shell`) or a small internal script/Postman
@@ -434,6 +487,19 @@ claims, rules, callable signatures) is already in place for it.
 4. Call `publishNotification` with the category/title/summary you want
    shown → creates the public `notifications` row, flips the document to
    `status: published`, and pushes FCM to `dcte_all` + the category topic.
+
+**Approving curriculum records, step by step:**
+1. Call `getPendingCurriculum({ gradeId: 'grade-5' })` (or any other
+   grade/subject) to pull a batch from the review queue.
+2. Open the real PDF to `sourcePage` and compare it against `unitTitle` /
+   `unitTitleUrdu`.
+3. Call `approveCurriculumRecord({ curriculumId, editedFields: { unitTitle: '...' } })`
+   — pass `editedFields` only if you're correcting something; omit it if
+   the row was already accurate. This is the only path that makes a
+   record visible in the app.
+4. Anything clearly garbage (a mis-split fragment, not a real unit) →
+   `rejectCurriculumRecord({ curriculumId })` instead, to drop it from the
+   queue.
 
 ---
 
@@ -486,9 +552,15 @@ claims, rules, callable signatures) is already in place for it.
 - [ ] `firebase deploy --only firestore:rules,firestore:indexes,storage,functions`
 - [ ] `sources/*` documents reviewed — `active: true`, real selectors
       verified against the live sites (§1)
-- [ ] At least one admin user has the `admin` custom claim
-- [ ] Seed data imported (§8), `academic_calendar` rows reviewed and
-      flipped to `verified: true` after manual confirmation
+- [ ] At least one admin user has the `admin` custom claim (§5 "Grant
+      yourself admin")
+- [ ] Seed data imported (§8) — lands `curriculum_pending` (1,323 rows,
+      admin-only) and the other collections; `academic_calendar` is
+      already `verified: true` (transcribed from the real PDF)
+- [ ] Curriculum records reviewed and promoted via `approveCurriculumRecord`
+      (§9) before expecting the app's Curriculum tab to show anything —
+      it queries the public `curriculum` collection only, which starts
+      empty
 - [ ] `flutter build apk --release` signed with your own keystore
       (`android/key.properties` — gitignored; not included here)
 - [ ] Manually verify: offline mode, Urdu RTL, FCM topic toggles, PDF

@@ -105,6 +105,75 @@ export const publishNotification = onCall(async (request) => {
   return { ok: true, notificationId: notifRef.id };
 });
 
+/**
+ * List curriculum rows awaiting review in `curriculum_pending` — the
+ * admin-only staging collection every imported/extracted curriculum
+ * record lands in until a human confirms it (see
+ * scripts/seed/import_seed.ts). Optionally filter by gradeId/subjectId to
+ * review one subject at a time instead of scrolling all 1000+ rows.
+ */
+export const getPendingCurriculum = onCall(async (request) => {
+  requireAdmin(request);
+  const { gradeId, subjectId, limit } = request.data ?? {};
+  const db = getFirestore();
+  let query: FirebaseFirestore.Query = db.collection('curriculum_pending');
+  if (gradeId) query = query.where('gradeId', '==', gradeId);
+  if (subjectId) query = query.where('subjectId', '==', subjectId);
+  const snap = await query.limit(Math.min(Number(limit) || 50, 200)).get();
+  return {
+    records: snap.docs.map((d) => ({ curriculumId: d.id, ...d.data() })),
+  };
+});
+
+/**
+ * Promote one reviewed row from `curriculum_pending` to the public
+ * `curriculum` collection the Android app actually queries — the only way
+ * a curriculum record ever becomes visible to end users. `editedFields`
+ * lets the admin correct anything (e.g. a cleaned-up `unitTitle`) as part
+ * of approving it; the record always lands with `needsVerification:
+ * false` regardless of what the pending row said, since approving it IS
+ * the verification. The pending copy is deleted so the queue only ever
+ * shows what's still unreviewed.
+ */
+export const approveCurriculumRecord = onCall(async (request) => {
+  requireAdmin(request);
+  const { curriculumId, editedFields } = request.data ?? {};
+  if (!curriculumId) throw new HttpsError('invalid-argument', 'curriculumId is required.');
+
+  const db = getFirestore();
+  const pendingRef = db.collection('curriculum_pending').doc(curriculumId);
+  const pendingSnap = await pendingRef.get();
+  if (!pendingSnap.exists) {
+    throw new HttpsError('not-found', `No pending curriculum record with id ${curriculumId}.`);
+  }
+
+  const data = pendingSnap.data()!;
+  await db
+    .collection('curriculum')
+    .doc(curriculumId)
+    .set({
+      ...data,
+      ...(editedFields ?? {}),
+      needsVerification: false,
+      searchKeywords: buildKeywords(String((editedFields ?? {}).unitTitle ?? data.unitTitle ?? '')),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  await pendingRef.delete();
+
+  return { ok: true };
+});
+
+/** Reject a pending curriculum record (e.g. it was mis-parsed garbage) — removes it from the review queue without publishing it. */
+export const rejectCurriculumRecord = onCall(async (request) => {
+  requireAdmin(request);
+  const { curriculumId } = request.data ?? {};
+  if (!curriculumId) throw new HttpsError('invalid-argument', 'curriculumId is required.');
+
+  const db = getFirestore();
+  await db.collection('curriculum_pending').doc(curriculumId).delete();
+  return { ok: true };
+});
+
 /** Disable/enable a source from the admin panel. */
 export const setSourceActive = onCall(async (request) => {
   requireAdmin(request);

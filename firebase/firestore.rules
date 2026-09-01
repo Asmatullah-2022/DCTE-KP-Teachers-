@@ -23,11 +23,19 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Curriculum items are public once published (needsVerification does
-    // not block reads — the UI surfaces a "needs verification" badge — but
-    // unpublished/draft items, if ever modeled, would be admin-only).
+    // Curriculum: the `curriculum` collection holds ONLY records an admin
+    // has explicitly reviewed and promoted (via the approveCurriculumRecord
+    // callable) — every row here is needsVerification: false and safe to
+    // show publicly. Everything freshly imported/extracted lands in
+    // `curriculum_pending` instead (below), which stays admin-only, so
+    // unverified curriculum content is never auto-published to the app.
     match /curriculum/{curriculumId} {
       allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /curriculum_pending/{curriculumId} {
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
