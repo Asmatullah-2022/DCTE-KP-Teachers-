@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DCTE KP Teachers — Curriculum Review</title>
+<style>
+  :root {
+    --green: #0b6e4f;
+    --green-dark: #064a35;
+    --bg: #fafaf7;
+    --high: #1a7f37;
+    --medium: #b08900;
+    --low: #c0341c;
+    --border: #e2e2dd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: #1a1a1a;
+  }
+  header {
+    background: white;
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { font-size: 16px; margin: 0; color: var(--green-dark); }
+  header .disclaimer { font-size: 11px; color: #888; max-width: 480px; }
+  #signout { font-size: 12px; cursor: pointer; color: var(--green); background: none; border: 1px solid var(--green); border-radius: 6px; padding: 6px 10px; }
+
+  #signin-screen { max-width: 380px; margin: 80px auto; background: white; padding: 24px; border-radius: 12px; border: 1px solid var(--border); }
+  #signin-screen h2 { margin-top: 0; font-size: 18px; }
+  #signin-screen input { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+  #signin-screen button { width: 100%; padding: 10px; margin-top: 8px; background: var(--green); color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+  #signin-error { color: var(--low); font-size: 12px; min-height: 16px; }
+
+  main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+
+  #summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .stat { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+  .stat .n { font-size: 22px; font-weight: 700; }
+  .stat .l { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: .03em; }
+
+  .layout { display: flex; gap: 16px; align-items: flex-start; }
+  #tree { width: 300px; flex-shrink: 0; background: white; border: 1px solid var(--border); border-radius: 10px; padding: 8px; max-height: 80vh; overflow-y: auto; }
+  #tree .grade { font-weight: 700; padding: 8px 6px 2px; cursor: pointer; }
+  #tree .subject { padding: 4px 6px 4px 18px; cursor: pointer; font-size: 13px; }
+  #tree .semester { padding: 4px 6px 4px 32px; cursor: pointer; font-size: 12.5px; color: #333; border-radius: 6px; }
+  #tree .semester:hover, #tree .semester.active { background: #eef6f2; }
+  #tree .badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 10px; margin-left: 4px; color: white; }
+  #tree .badge.high { background: var(--high); }
+  #tree .badge.medium { background: var(--medium); }
+  #tree .badge.low { background: var(--low); }
+  #tree .hidden { display: none; }
+  #tree .toggle { display: inline-block; width: 12px; }
+
+  #panel { flex: 1; min-width: 0; }
+  #group-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+  #actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  #actions button { font-size: 12.5px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: white; cursor: pointer; }
+  #actions button.primary { background: var(--green); color: white; border-color: var(--green); }
+  #actions button:disabled { opacity: .45; cursor: not-allowed; }
+
+  table { width: 100%; border-collapse: collapse; background: white; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13px; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { background: #f4f4f0; font-size: 11px; text-transform: uppercase; color: #666; }
+  tr:last-child td { border-bottom: none; }
+  .conf { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; color: white; }
+  .conf.HIGH { background: var(--high); }
+  .conf.MEDIUM { background: var(--medium); }
+  .conf.LOW { background: var(--low); }
+  .status { font-size: 11px; padding: 2px 7px; border-radius: 10px; background: #eee; }
+  .status.verified { background: #dff5e6; color: var(--high); }
+  .status.rejected { background: #fbe3de; color: var(--low); }
+  .status.pending_review { background: #fff4d9; color: var(--medium); }
+  .rowbtn { font-size: 11.5px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: white; cursor: pointer; margin-right: 4px; }
+  .title-urdu { direction: rtl; text-align: right; }
+  .empty { padding: 30px; text-align: center; color: #888; }
+
+  #modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); align-items: center; justify-content: center; z-index: 50; }
+  #modal { background: white; border-radius: 12px; padding: 20px; width: 90%; max-width: 480px; }
+  #modal textarea { width: 100%; min-height: 70px; margin: 6px 0; padding: 8px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+  #modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+
+  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #222; color: white; padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 60; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>DCTE KP Teachers — Curriculum Review</h1>
+  <div class="disclaimer">Independent app admin tool. Not an official government system.</div>
+  <button id="signout" class="hidden">Sign out</button>
+</header>
+
+<div id="signin-screen">
+  <h2>Admin sign-in</h2>
+  <p style="font-size:12px;color:#666">This page only works for a Firebase Auth user with the <code>admin</code> custom claim (see README.md §5 / scripts/grant_admin.ts).</p>
+  <input id="email" type="email" placeholder="Email" autocomplete="username" />
+  <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
+  <button id="signin-btn">Sign in</button>
+  <div id="signin-error"></div>
+</div>
+
+<main id="app" class="hidden">
+  <div id="summary"></div>
+  <div class="layout">
+    <div id="tree"></div>
+    <div id="panel">
+      <div id="group-title">Select a grade → subject → semester on the left to review its records.</div>
+      <div id="actions" class="hidden">
+        <button id="btn-approve-selected">Approve Selected</button>
+        <button id="btn-reject-selected">Reject Selected</button>
+        <button id="btn-approve-high" class="primary">Approve High Confidence (this group)</button>
+        <button id="btn-export">Export Review Report</button>
+        <button id="btn-refresh">Refresh</button>
+      </div>
+      <div id="table-wrap"></div>
+    </div>
+  </div>
+</main>
+
+<div id="modal-backdrop">
+  <div id="modal">
+    <h3 style="margin-top:0">Edit record</h3>
+    <div style="font-size:12px;color:#666">Original extracted text is never changed — this saves a correction alongside it.</div>
+    <label style="font-size:12px;font-weight:600">Unit title</label>
+    <textarea id="edit-title"></textarea>
+    <label style="font-size:12px;font-weight:600">Unit title (Urdu)</label>
+    <textarea id="edit-title-urdu" class="title-urdu"></textarea>
+    <div class="modal-actions">
+      <button id="modal-cancel" class="rowbtn">Cancel</button>
+      <button id="modal-save" class="rowbtn" style="background:var(--green);color:white;border-color:var(--green)">Save correction</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import {
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import {
+  getFirestore, collection, getDocs,
+} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+import {
+  getFunctions, httpsCallable,
+} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js';
+
+// See firebase-config.example.js — copy to firebase-config.js with your
+// project's real (public, client-safe) web config before deploying this.
+let firebaseConfig;
+try {
+  ({ firebaseConfig } = await import('./firebase-config.js'));
+} catch {
+  document.body.innerHTML =
+    '<div style="max-width:520px;margin:80px auto;font-family:sans-serif;padding:20px">' +
+    '<h2>Missing admin/firebase-config.js</h2>' +
+    '<p>Copy <code>admin/firebase-config.example.js</code> to <code>admin/firebase-config.js</code> ' +
+    'and fill in your Firebase project\'s web app config (Firebase Console → Project Settings → ' +
+    'General → Your apps → Web app), then reload this page.</p></div>';
+  throw new Error('firebase-config.js missing');
+}
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const functions = getFunctions(app);
+
+const call = (name) => httpsCallable(functions, name);
+
+const DCTE_PDF_URL =
+  'https://dcte.kpese.gov.pk/wp-content/uploads/Revised-Notification-Semester-wise-Course-Grade-I-VIII-final-draft.pdf';
+
+// --- state ------------------------------------------------------------
+let allPending = []; // full curriculum_pending snapshot, refreshed on demand
+let currentGroup = null; // { gradeId, subjectId, semester }
+let currentRows = [];
+
+// --- auth ---------------------------------------------------------------
+document.getElementById('signin-btn').addEventListener('click', async () => {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const errEl = document.getElementById('signin-error');
+  errEl.textContent = '';
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    errEl.textContent = e.message || 'Sign-in failed.';
+  }
+});
+
+document.getElementById('signout').addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, async (user) => {
+  const signinScreen = document.getElementById('signin-screen');
+  const appEl = document.getElementById('app');
+  const signoutBtn = document.getElementById('signout');
+
+  if (!user) {
+    signinScreen.classList.remove('hidden');
+    appEl.classList.add('hidden');
+    signoutBtn.classList.add('hidden');
+    return;
+  }
+
+  const tokenResult = await user.getIdTokenResult();
+  if (tokenResult.claims.admin !== true) {
+    signinScreen.classList.remove('hidden');
+    appEl.classList.add('hidden');
+    document.getElementById('signin-error').textContent =
+      'Signed in, but this account does not have the admin claim. See scripts/grant_admin.ts.';
+    return;
+  }
+
+  signinScreen.classList.add('hidden');
+  appEl.classList.remove('hidden');
+  signoutBtn.classList.remove('hidden');
+  await refreshAll();
+});
+
+// --- data loading ---------------------------------------------------------
+async function refreshAll() {
+  await Promise.all([loadSummary(), loadTree()]);
+  if (currentGroup) selectGroup(currentGroup, /*keepScroll*/ true);
+}
+
+async function loadSummary() {
+  const res = await call('getCurriculumReviewSummary')();
+  const s = res.data;
+  const el = document.getElementById('summary');
+  const stat = (label, n) => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div></div>`;
+  el.innerHTML =
+    stat('Total extracted', s.totalExtracted) +
+    stat('High confidence', s.highConfidence) +
+    stat('Medium confidence', s.mediumConfidence) +
+    stat('Low confidence', s.lowConfidence) +
+    stat('Verified', s.verified) +
+    stat('Pending', s.pending) +
+    stat('Rejected', s.rejected) +
+    stat('Published to app', s.publishedToApp);
+}
+
+async function loadTree() {
+  const snap = await getDocs(collection(db, 'curriculum_pending'));
+  allPending = snap.docs.map((d) => ({ curriculumId: d.id, ...d.data() }));
+  renderTree();
+}
+
+function renderTree() {
+  // group -> { grade -> subject -> semester -> {high,medium,low,total} }
+  const tree = new Map();
+  for (const r of allPending) {
+    const g = tree.get(r.gradeId) ?? new Map();
+    tree.set(r.gradeId, g);
+    const s = g.get(r.subjectId) ?? new Map();
+    g.set(r.subjectId, s);
+    const stats = s.get(r.semester) ?? { high: 0, medium: 0, low: 0, total: 0 };
+    stats.total++;
+    if (r.extractionConfidence === 'HIGH') stats.high++;
+    else if (r.extractionConfidence === 'MEDIUM') stats.medium++;
+    else stats.low++;
+    s.set(r.semester, stats);
+  }
+
+  const gradeOrder = ['ece', 'grade-1', 'grade-2', 'grade-3', 'grade-4', 'grade-5', 'grade-6', 'grade-7', 'grade-8'];
+  const grades = Array.from(tree.keys()).sort((a, b) => gradeOrder.indexOf(a) - gradeOrder.indexOf(b));
+
+  const treeEl = document.getElementById('tree');
+  treeEl.innerHTML = '';
+
+  for (const gradeId of grades) {
+    const gradeDiv = document.createElement('div');
+    const subjectsMap = tree.get(gradeId);
+    const gradeLabel = document.createElement('div');
+    gradeLabel.className = 'grade';
+    gradeLabel.textContent = gradeId.toUpperCase();
+    const subjectsContainer = document.createElement('div');
+    gradeLabel.addEventListener('click', () => subjectsContainer.classList.toggle('hidden'));
+    gradeDiv.appendChild(gradeLabel);
+    gradeDiv.appendChild(subjectsContainer);
+
+    const subjectIds = Array.from(subjectsMap.keys()).sort();
+    for (const subjectId of subjectIds) {
+      const semMap = subjectsMap.get(subjectId);
+      const subjDiv = document.createElement('div');
+      const subjLabel = document.createElement('div');
+      subjLabel.className = 'subject';
+      subjLabel.textContent = subjectId;
+      const semContainer = document.createElement('div');
+      subjLabel.addEventListener('click', () => semContainer.classList.toggle('hidden'));
+      subjDiv.appendChild(subjLabel);
+      subjDiv.appendChild(semContainer);
+
+      for (const semester of Array.from(semMap.keys()).sort()) {
+        const stats = semMap.get(semester);
+        const semEl = document.createElement('div');
+        semEl.className = 'semester';
+        semEl.innerHTML =
+          `<span class="toggle"></span>${semester}` +
+          (stats.high ? `<span class="badge high">${stats.high}H</span>` : '') +
+          (stats.medium ? `<span class="badge medium">${stats.medium}M</span>` : '') +
+          (stats.low ? `<span class="badge low">${stats.low}L</span>` : '');
+        semEl.addEventListener('click', () => selectGroup({ gradeId, subjectId, semester }));
+        semEl.dataset.gradeId = gradeId;
+        semEl.dataset.subjectId = subjectId;
+        semEl.dataset.semester = semester;
+        semContainer.appendChild(semEl);
+      }
+      subjectsContainer.appendChild(subjDiv);
+    }
+    treeEl.appendChild(gradeDiv);
+  }
+}
+
+function selectGroup(group) {
+  currentGroup = group;
+  document.querySelectorAll('#tree .semester').forEach((el) => {
+    el.classList.toggle(
+      'active',
+      el.dataset.gradeId === group.gradeId && el.dataset.subjectId === group.subjectId && el.dataset.semester === group.semester,
+    );
+  });
+  currentRows = allPending
+    .filter((r) => r.gradeId === group.gradeId && r.subjectId === group.subjectId && r.semester === group.semester)
+    .sort((a, b) => (a.unitNumber ?? 0) - (b.unitNumber ?? 0));
+
+  document.getElementById('group-title').textContent = `${group.gradeId} → ${group.subjectId} → ${group.semester} (${currentRows.length} records)`;
+  document.getElementById('actions').classList.remove('hidden');
+  renderTable();
+}
+
+function effectiveTitle(r) {
+  return r.correctedValue?.unitTitle ?? r.unitTitle;
+}
+function effectiveTitleUrdu(r) {
+  return r.correctedValue?.unitTitleUrdu ?? r.unitTitleUrdu;
+}
+
+function renderTable() {
+  const wrap = document.getElementById('table-wrap');
+  if (currentRows.length === 0) {
+    wrap.innerHTML = '<div class="empty">No records in this group.</div>';
+    return;
+  }
+
+  const rowsHtml = currentRows
+    .map((r) => {
+      const title = effectiveTitle(r) ?? '';
+      const titleUrdu = effectiveTitleUrdu(r);
+      const isUrdu = /[؀-ۿ]/.test(title) || (titleUrdu && titleUrdu.length > 0);
+      const pdfHref = `${r.sourceUrl || DCTE_PDF_URL}#page=${r.sourcePage || 1}`;
+      return `
+        <tr data-id="${r.curriculumId}">
+          <td><input type="checkbox" class="row-check" /></td>
+          <td>${r.unitNumber ?? ''}</td>
+          <td class="${isUrdu ? 'title-urdu' : ''}">${escapeHtml(title)}${titleUrdu ? `<br><span class="title-urdu">${escapeHtml(titleUrdu)}</span>` : ''}</td>
+          <td>${r.sourcePage ?? '—'}</td>
+          <td><span class="conf ${r.extractionConfidence}">${r.extractionConfidence}</span></td>
+          <td><span class="status ${r.verificationStatus}">${r.verificationStatus}</span></td>
+          <td>
+            <a class="rowbtn" href="${pdfHref}" target="_blank" rel="noopener">View Source PDF</a>
+            <button class="rowbtn edit-btn">Edit</button>
+            <button class="rowbtn approve-btn">Approve</button>
+            <button class="rowbtn reject-btn">Reject</button>
+          </td>
+        </tr>`;
+    })
+    .join('');
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="check-all" /></th>
+          <th>Unit</th>
+          <th>Title</th>
+          <th>Source Page</th>
+          <th>Confidence</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>`;
+
+  document.getElementById('check-all').addEventListener('change', (e) => {
+    document.querySelectorAll('.row-check').forEach((cb) => (cb.checked = e.target.checked));
+  });
+
+  wrap.querySelectorAll('tr[data-id]').forEach((tr) => {
+    const id = tr.dataset.id;
+    const record = currentRows.find((r) => r.curriculumId === id);
+    tr.querySelector('.approve-btn').addEventListener('click', () => approveOne(id));
+    tr.querySelector('.reject-btn').addEventListener('click', () => rejectOne(id));
+    tr.querySelector('.edit-btn').addEventListener('click', () => openEditModal(record));
+  });
+}
+
+function selectedIds() {
+  return Array.from(document.querySelectorAll('tr[data-id] .row-check'))
+    .filter((cb) => cb.checked)
+    .map((cb) => cb.closest('tr').dataset.id);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// --- single-record actions -------------------------------------------------
+async function approveOne(curriculumId) {
+  await call('approveCurriculumRecord')({ curriculumId });
+  toast('Approved.');
+  await refreshAll();
+}
+async function rejectOne(curriculumId) {
+  await call('rejectCurriculumRecord')({ curriculumId });
+  toast('Rejected.');
+  await refreshAll();
+}
+
+// --- edit modal -------------------------------------------------------
+let editingRecord = null;
+function openEditModal(record) {
+  editingRecord = record;
+  document.getElementById('edit-title').value = effectiveTitle(record) ?? '';
+  document.getElementById('edit-title-urdu').value = effectiveTitleUrdu(record) ?? '';
+  document.getElementById('modal-backdrop').style.display = 'flex';
+}
+document.getElementById('modal-cancel').addEventListener('click', () => {
+  document.getElementById('modal-backdrop').style.display = 'none';
+});
+document.getElementById('modal-save').addEventListener('click', async () => {
+  const unitTitle = document.getElementById('edit-title').value;
+  const unitTitleUrdu = document.getElementById('edit-title-urdu').value || null;
+  await call('editCurriculumPending')({
+    curriculumId: editingRecord.curriculumId,
+    correctedValue: { unitTitle, unitTitleUrdu },
+  });
+  document.getElementById('modal-backdrop').style.display = 'none';
+  toast('Correction saved. Approve the record to publish it.');
+  await refreshAll();
+});
+
+// --- bulk actions -------------------------------------------------------
+document.getElementById('btn-approve-selected').addEventListener('click', async () => {
+  const ids = selectedIds();
+  if (ids.length === 0) return toast('Select at least one record first.');
+  if (!confirm(`Approve ${ids.length} selected record(s)?`)) return;
+  const res = await call('approveSelectedCurriculum')({ curriculumIds: ids });
+  toast(`Approved ${res.data.approved} record(s).`);
+  await refreshAll();
+});
+
+document.getElementById('btn-reject-selected').addEventListener('click', async () => {
+  const ids = selectedIds();
+  if (ids.length === 0) return toast('Select at least one record first.');
+  if (!confirm(`Reject ${ids.length} selected record(s)?`)) return;
+  const res = await call('rejectSelectedCurriculum')({ curriculumIds: ids });
+  toast(`Rejected ${res.data.rejected} record(s).`);
+  await refreshAll();
+});
+
+document.getElementById('btn-approve-high').addEventListener('click', async () => {
+  if (!currentGroup) return;
+  const dry = await call('bulkApproveHighConfidence')({ ...currentGroup, dryRun: true });
+  const n = dry.data.wouldApprove;
+  if (n === 0) return toast('No pending HIGH-confidence records in this group.');
+  if (!confirm(`Approve ${n} HIGH-confidence record(s) in ${currentGroup.gradeId} → ${currentGroup.subjectId} → ${currentGroup.semester}? MEDIUM/LOW records are never touched by this button.`)) return;
+  const res = await call('bulkApproveHighConfidence')({ ...currentGroup, dryRun: false });
+  toast(`Approved ${res.data.approved} HIGH-confidence record(s).`);
+  await refreshAll();
+});
+
+document.getElementById('btn-export').addEventListener('click', async () => {
+  const res = await call('exportCurriculumReviewReport')();
+  const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `curriculum-review-report-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('btn-refresh').addEventListener('click', refreshAll);
+</script>
+</body>
+</html>

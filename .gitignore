@@ -32,9 +32,11 @@ firebase-debug.log
 .firebase/
 functions/lib/
 functions/node_modules/
+scripts/node_modules/
 functions/.env
 functions/service-account*.json
 serviceAccountKey.json
+admin/firebase-config.js
 
 # Env
 .env

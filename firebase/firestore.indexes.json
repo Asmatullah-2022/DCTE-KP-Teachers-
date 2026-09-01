@@ -76,6 +76,50 @@
         { "fieldPath": "zone", "order": "ASCENDING" },
         { "fieldPath": "startDate", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "curriculum_pending",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "gradeId", "order": "ASCENDING" },
+        { "fieldPath": "subjectId", "order": "ASCENDING" },
+        { "fieldPath": "semester", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "curriculum_pending",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "gradeId", "order": "ASCENDING" },
+        { "fieldPath": "verificationStatus", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "curriculum_pending",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "extractionConfidence", "order": "ASCENDING" },
+        { "fieldPath": "verificationStatus", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "curriculum_pending",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "extractionConfidence", "order": "ASCENDING" },
+        { "fieldPath": "verificationStatus", "order": "ASCENDING" },
+        { "fieldPath": "gradeId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "curriculum_pending",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "extractionConfidence", "order": "ASCENDING" },
+        { "fieldPath": "verificationStatus", "order": "ASCENDING" },
+        { "fieldPath": "gradeId", "order": "ASCENDING" },
+        { "fieldPath": "subjectId", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

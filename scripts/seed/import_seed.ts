@@ -28,9 +28,20 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { validateRecord, classifyConfidence, findDuplicateKeys, ClassifiableRecord } from './confidence';
 
 initializeApp({ credential: applicationDefault() });
 const db = getFirestore();
+
+/** Firestore batched writes cap at 500 mutations — chunk larger sets. */
+async function commitInChunks<T>(items: T[], write: (batch: FirebaseFirestore.WriteBatch, item: T) => void) {
+  const CHUNK_SIZE = 450;
+  for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+    const batch = db.batch();
+    for (const item of items.slice(i, i + CHUNK_SIZE)) write(batch, item);
+    await batch.commit();
+  }
+}
 
 function readJsonIfExists<T>(filename: string): T[] {
   const filePath = path.join(__dirname, filename);
@@ -128,17 +139,40 @@ async function importDocuments() {
  *                                collection) — only rows a human has
  *                                actually confirmed against the source PDF
  *
+ * Every pending row also gets `extractionConfidence` (HIGH/MEDIUM/LOW) and
+ * a `validation` report computed here (see ./confidence.ts — the single
+ * place this logic lives; the admin dashboard and bulk-approve Cloud
+ * Functions only ever read these fields back, never recompute them), plus
+ * the review-workflow fields (`verificationStatus`, `reviewedBy`,
+ * `reviewedAt`, `correctedValue`, `originalExtractedValue`) starting
+ * empty. `rawText`/`extractedText`/`structuredData` are captured as
+ * explicit, permanently-immutable snapshots of what was actually
+ * extracted, distinct from `unitTitle` (also never mutated by this
+ * importer — corrections live only in `correctedValue`, applied by an
+ * admin, see functions/src/admin/adminApi.ts).
+ *
  * An admin promotes a reviewed row from pending to public via the
- * `approveCurriculumRecord` callable (functions/src/admin/adminApi.ts),
- * the same detected -> pending_review -> verified -> published shape used
- * for whole documents. Running this importer again after re-generating
+ * `approveCurriculumRecord` callable, the same detected -> pending_review
+ * -> verified -> published shape used for whole documents — and that
+ * function COPIES rather than deletes the pending row, so
+ * `curriculum_pending` remains a permanent audit trail of every review
+ * decision. Running this importer again after re-generating
  * curriculum.json does not un-approve anything already promoted — it only
- * touches `curriculum_pending` doc IDs matching the current file.
+ * touches `curriculum_pending` doc IDs matching the current file, and
+ * never overwrites one already reviewed (`verificationStatus !==
+ * 'pending_review'`), so re-running the importer can't silently wipe out
+ * review history.
  */
 async function importCurriculum() {
-  const rows = readJsonIfExists<Record<string, unknown>>('curriculum.json');
-  let pendingCount = 0;
-  let publicCount = 0;
+  const rows = readJsonIfExists<ClassifiableRecord & Record<string, unknown>>('curriculum.json');
+  const gradeIds = new Set(readJsonIfExists<{ gradeId: string }>('grades.json').map((g) => g.gradeId));
+  const subjectIds = new Set(readJsonIfExists<{ subjectId: string }>('subjects.json').map((s) => s.subjectId));
+  const documentIds = new Set(readJsonIfExists<{ documentId: string }>('documents.json').map((d) => d.documentId));
+  const duplicateKeys = findDuplicateKeys(rows);
+
+  const publicRows: any[] = [];
+  const pendingRows: any[] = [];
+  const confidenceCounts = { HIGH: 0, MEDIUM: 0, LOW: 0 };
 
   for (const r of rows as any[]) {
     const { curriculumId, unitTitle, needsVerification, ...rest } = r;
@@ -146,28 +180,78 @@ async function importCurriculum() {
       throw new Error(`curriculum.json contains an unfilled template row for ${curriculumId}. Fill in real data first.`);
     }
 
-    const collection = needsVerification === false ? 'curriculum' : 'curriculum_pending';
-    if (collection === 'curriculum') publicCount++;
-    else pendingCount++;
-
-    await db
-      .collection(collection)
-      .doc(curriculumId)
-      .set(
-        {
+    if (needsVerification === false) {
+      publicRows.push({
+        curriculumId,
+        data: {
           ...rest,
           unitTitle,
-          needsVerification: needsVerification !== false,
+          needsVerification: false,
           searchKeywords: buildKeywords(unitTitle),
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         },
-        { merge: true },
-      );
+      });
+      continue;
+    }
+
+    const validation = validateRecord(r, gradeIds, subjectIds, documentIds, duplicateKeys);
+    const extractionConfidence = classifyConfidence(r, validation);
+    confidenceCounts[extractionConfidence]++;
+
+    // Only ever create/refresh a pending row that's still `pending_review`
+    // — an existing 'verified'/'rejected' row (an admin already decided)
+    // is left completely untouched by re-running the importer.
+    const existing = await db.collection('curriculum_pending').doc(curriculumId).get();
+    if (existing.exists && existing.data()?.verificationStatus !== 'pending_review') {
+      continue;
+    }
+
+    pendingRows.push({
+      curriculumId,
+      data: {
+        ...rest,
+        unitTitle,
+        needsVerification: true,
+        extractionConfidence,
+        validation,
+        verificationStatus: 'pending_review',
+        reviewedBy: null,
+        reviewedAt: null,
+        originalExtractedValue: null,
+        correctedValue: null,
+        correctedBy: null,
+        correctedAt: null,
+        // Immutable snapshots of exactly what was extracted — never
+        // touched again after this import, regardless of later corrections.
+        rawText: unitTitle,
+        extractedText: unitTitle,
+        structuredData: {
+          gradeId: rest.gradeId,
+          subjectId: rest.subjectId,
+          semester: rest.semester,
+          unitNumber: rest.unitNumber,
+        },
+        searchKeywords: buildKeywords(unitTitle),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+    });
   }
+
+  await commitInChunks(publicRows, (batch, row) =>
+    batch.set(db.collection('curriculum').doc(row.curriculumId), row.data, { merge: true }),
+  );
+  await commitInChunks(pendingRows, (batch, row) =>
+    batch.set(db.collection('curriculum_pending').doc(row.curriculumId), row.data, { merge: true }),
+  );
+
   console.log(
-    `Imported ${rows.length} curriculum rows: ${publicCount} verified -> curriculum (public), ` +
-      `${pendingCount} unverified -> curriculum_pending (admin review required, never shown in the app).`,
+    `Imported ${rows.length} curriculum rows: ${publicRows.length} verified -> curriculum (public), ` +
+      `${pendingRows.length} unverified -> curriculum_pending (admin review required, never shown in the app).`,
+  );
+  console.log(
+    `Pending confidence breakdown: HIGH ${confidenceCounts.HIGH}, MEDIUM ${confidenceCounts.MEDIUM}, LOW ${confidenceCounts.LOW}.`,
   );
 }
 

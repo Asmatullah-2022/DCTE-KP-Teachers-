@@ -9,8 +9,16 @@ export {
   rejectDocument,
   publishNotification,
   setSourceActive,
+} from './admin/adminApi';
+export {
   getPendingCurriculum,
   approveCurriculumRecord,
+  editCurriculumPending,
   rejectCurriculumRecord,
-} from './admin/adminApi';
+  approveSelectedCurriculum,
+  rejectSelectedCurriculum,
+  bulkApproveHighConfidence,
+  getCurriculumReviewSummary,
+  exportCurriculumReviewReport,
+} from './admin/curriculumReview';
 export { askAssistant } from './ai/extract';
