@@ -32,7 +32,7 @@ dependencies:
   shimmer: ^3.0.0
 
   # PDF
-  syncfusion_flutter_pdfviewer: ^27.1.58
+  syncfusion_flutter_pdfviewer: ^32.2.9
 
   # Local caching / storage
   shared_preferences: ^2.3.2
