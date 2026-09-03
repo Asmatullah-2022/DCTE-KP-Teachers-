@@ -33,23 +33,39 @@ void main() {
     var firebaseReady = false;
     try {
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-      // App Check protects Firestore/Storage/Functions from abuse. Play
-      // Integrity is the production provider for Android; the debug
-      // provider is used for local development (its token is printed to
-      // logcat on first run — add it to the Firebase Console > App Check >
-      // Debug tokens for your dev device).
-      await FirebaseAppCheck.instance.activate(
-        androidProvider: AndroidProvider.playIntegrity,
-      );
       firebaseReady = true;
     } catch (error, stackTrace) {
       // lib/config/firebase_options.dart still ships placeholder values
       // until `flutterfire configure` is run (see README §6) — this is
       // expected to fail until then. Fall back to a visible screen instead
       // of leaving the app stuck on a blank one.
-      debugPrint('Firebase initialization failed, running in fallback mode: $error');
+      debugPrint('Firebase.initializeApp() failed, running in fallback mode: $error');
       debugPrintStack(stackTrace: stackTrace);
+    }
+
+    if (firebaseReady) {
+      // App Check is an anti-abuse layer, not a requirement for Firestore/
+      // Auth/Storage to function — it must never be allowed to block the
+      // rest of the app the way it previously did by sharing a try/catch
+      // with Firebase.initializeApp() above. Play Integrity attestation
+      // (the Android provider) requires the app to be recognized as
+      // installed through Google Play; a sideloaded APK (installed
+      // directly from a downloaded file, as during development/testing)
+      // reliably fails this, which is expected and NOT a sign that
+      // Firebase itself is misconfigured. Firestore/Auth/Storage still
+      // work via the API key in firebase_options.dart regardless — App
+      // Check just won't be enforced for this session.
+      try {
+        await FirebaseAppCheck.instance.activate(
+          androidProvider: AndroidProvider.playIntegrity,
+        );
+      } catch (error, stackTrace) {
+        debugPrint(
+          'FirebaseAppCheck.activate() failed — App Check will not be '
+          'enforced this session, but Firebase itself is fine: $error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
     }
 
     final cacheService = CacheService();
