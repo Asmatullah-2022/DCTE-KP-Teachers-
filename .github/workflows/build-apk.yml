@@ -124,6 +124,34 @@ jobs:
       - name: flutter pub get
         run: flutter pub get
 
+      # syncfusion_flutter_pdfviewer-29.2.11's OWN android/build.gradle
+      # (bundled inside the package under the pub-cache, fetched by the
+      # previous step) hardcodes `compileSdkVersion 31` as a literal
+      # number — confirmed by directly printing this file's real content
+      # in CI (run 33724847311). It has no reference to
+      # flutter.compileSdkVersion at all, which is exactly why neither
+      # editing android/app/build.gradle.kts nor setting local.properties
+      # could ever change it: there is no indirection there to override.
+      # Patch the literal value directly in the pub-cache copy.
+      - name: Patch syncfusion_flutter_pdfviewer's hardcoded compileSdkVersion
+        run: |
+          set -e
+          PKG_DIR=$(find "$PUB_CACHE" -maxdepth 4 -type d -iname "syncfusion_flutter_pdfviewer-*" 2>/dev/null | sort | tail -n1)
+          if [ -z "$PKG_DIR" ]; then
+            echo "::error::Could not locate syncfusion_flutter_pdfviewer under PUB_CACHE after pub get."
+            exit 1
+          fi
+          GRADLE_FILE="$PKG_DIR/android/build.gradle"
+
+          sed -i 's/compileSdkVersion 31/compileSdkVersion 36/' "$GRADLE_FILE"
+
+          grep -qE "compileSdkVersion 36" "$GRADLE_FILE" || {
+            echo "::error::compileSdkVersion 36 not confirmed in $GRADLE_FILE after patch."
+            cat "$GRADLE_FILE"
+            exit 1
+          }
+          echo "OK: $GRADLE_FILE now has compileSdkVersion 36"
+
       - name: flutter analyze
         run: flutter analyze --no-fatal-infos
 
