@@ -69,19 +69,33 @@ jobs:
           fi
 
       # `flutter create`'s default compileSdk (whatever this Flutter version's
-      # template picks, e.g. 31) is too low for modern plugin AARs. A first
-      # pass pinning it to 35 got past syncfusion_flutter_pdfviewer's own
-      # requirement (API 34+), but shared_preferences_android,
+      # template picks, e.g. 31) is too low for modern plugin AARs.
+      # syncfusion_flutter_pdfviewer, shared_preferences_android,
       # sqflite_android, url_launcher_android, and androidx.core:1.17.0 all
-      # require API 36 specifically (confirmed via
-      # :app:checkReleaseAarMetadata's "compile against version 36 or later"
-      # errors on CI run 33720847656) — so 36 it is, matching Gradle's own
-      # "Recommended action ... of at least 36, for example 36". Pin
-      # compileSdk/targetSdk to 36 in the generated app/build.gradle(.kts)
-      # regardless of the template's own default, and fail loudly if the
-      # expected setting line isn't found so a template change doesn't
-      # silently no-op this fix.
-      - name: Raise compileSdk/targetSdk to 36 for modern plugin AARs
+      # require compiling against API 36 (confirmed via
+      # :app:checkReleaseAarMetadata / :syncfusion_flutter_pdfviewer:
+      # checkReleaseAarMetadata's "compile against version 36 or later"
+      # errors — Gradle's own recommended action is "compileSdk of at least
+      # 36, for example 36").
+      #
+      # A first attempt sed-replaced the literal line
+      # `compileSdk = flutter.compileSdkVersion` — that step reported
+      # success (something in the file did change, confirmed by its own
+      # diff check), but the actual Gradle build still resolved compileSdk
+      # to 31 (CI run 33721552186), meaning the real compileSdk assignment
+      # in THIS Flutter version's generated template uses different syntax
+      # than assumed, and only the targetSdk line (or some other line)
+      # matched. Rather than guess again at the exact internal syntax,
+      # this step dumps the generated android{} block for diagnosis and
+      # then UNCONDITIONALLY overrides compileSdk/targetSdk by appending
+      # direct property assignments at the very end of the build script.
+      # Gradle executes top-level script statements in file order, so an
+      # assignment appended after the android {} block always wins over
+      # whatever that block set, regardless of how it was originally
+      # written (a literal number, `flutter.compileSdkVersion`, a version
+      # catalog reference, etc.) — this does not depend on matching any
+      # particular line format.
+      - name: Force compileSdk/targetSdk to 36 for modern plugin AARs
         run: |
           set -e
           KTS="android/app/build.gradle.kts"
@@ -89,32 +103,36 @@ jobs:
 
           if [ -f "$KTS" ]; then
             FILE="$KTS"
+            IS_KTS=1
           elif [ -f "$GROOVY" ]; then
             FILE="$GROOVY"
+            IS_KTS=0
           else
             echo "::error::Neither $KTS nor $GROOVY exists after android/ generation."
             exit 1
           fi
 
-          echo "Patching $FILE"
-          cp "$FILE" "$FILE.bak"
+          echo "Generated $FILE — android block as written by 'flutter create':"
+          grep -nE "compileSdk|targetSdk|namespace" "$FILE" || echo "(no compileSdk/targetSdk/namespace lines found — template structure may differ further)"
 
-          # Kotlin DSL: compileSdk = flutter.compileSdkVersion / targetSdk = flutter.targetSdkVersion
-          sed -i -E 's/compileSdk[[:space:]]*=[[:space:]]*flutter\.compileSdkVersion/compileSdk = 36/' "$FILE"
-          sed -i -E 's/targetSdk[[:space:]]*=[[:space:]]*flutter\.targetSdkVersion/targetSdk = 36/' "$FILE"
-          # Legacy Groovy: compileSdkVersion flutter.compileSdkVersion / targetSdkVersion flutter.targetSdkVersion
-          sed -i -E 's/compileSdkVersion[[:space:]]+flutter\.compileSdkVersion/compileSdkVersion 36/' "$FILE"
-          sed -i -E 's/targetSdkVersion[[:space:]]+flutter\.targetSdkVersion/targetSdkVersion 36/' "$FILE"
-
-          if diff -q "$FILE" "$FILE.bak" > /dev/null; then
-            echo "::error::No compileSdk/targetSdk line matched in $FILE — template format changed, fix the sed patterns."
-            cat "$FILE"
-            exit 1
+          if [ "$IS_KTS" = "1" ]; then
+            {
+              echo ""
+              echo "// --- CI override: force compileSdk/targetSdk to 36 (see build-apk.yml for why) ---"
+              echo "android.compileSdk = 36"
+              echo "android.defaultConfig.targetSdk = 36"
+            } >> "$FILE"
+          else
+            {
+              echo ""
+              echo "// --- CI override: force compileSdk/targetSdk to 36 (see build-apk.yml for why) ---"
+              echo "android.compileSdkVersion 36"
+              echo "android.defaultConfig.targetSdkVersion 36"
+            } >> "$FILE"
           fi
-          rm "$FILE.bak"
 
-          echo "Resulting compileSdk/targetSdk lines:"
-          grep -nE "compileSdk|targetSdk" "$FILE"
+          echo "Appended override. Final $FILE tail:"
+          tail -n 6 "$FILE"
 
       - name: flutter pub get
         run: flutter pub get
