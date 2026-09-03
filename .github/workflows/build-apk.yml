@@ -69,17 +69,19 @@ jobs:
           fi
 
       # `flutter create`'s default compileSdk (whatever this Flutter version's
-      # template picks, e.g. 31) is too low for modern plugin AARs.
-      # syncfusion_flutter_pdfviewer and its AndroidX transitive deps
-      # (androidx.core, androidx.fragment, androidx.lifecycle:*:2.7.0,
-      # device_info_plus, etc.) require compiling against API 34+, or the
-      # build fails at :syncfusion_flutter_pdfviewer:checkReleaseAarMetadata
-      # with "requires ... to compile against version 34 or later". Pin
-      # compileSdk/targetSdk to 35 in the generated app/build.gradle(.kts)
+      # template picks, e.g. 31) is too low for modern plugin AARs. A first
+      # pass pinning it to 35 got past syncfusion_flutter_pdfviewer's own
+      # requirement (API 34+), but shared_preferences_android,
+      # sqflite_android, url_launcher_android, and androidx.core:1.17.0 all
+      # require API 36 specifically (confirmed via
+      # :app:checkReleaseAarMetadata's "compile against version 36 or later"
+      # errors on CI run 33720847656) — so 36 it is, matching Gradle's own
+      # "Recommended action ... of at least 36, for example 36". Pin
+      # compileSdk/targetSdk to 36 in the generated app/build.gradle(.kts)
       # regardless of the template's own default, and fail loudly if the
       # expected setting line isn't found so a template change doesn't
       # silently no-op this fix.
-      - name: Raise compileSdk/targetSdk to 35 for modern plugin AARs
+      - name: Raise compileSdk/targetSdk to 36 for modern plugin AARs
         run: |
           set -e
           KTS="android/app/build.gradle.kts"
@@ -98,11 +100,11 @@ jobs:
           cp "$FILE" "$FILE.bak"
 
           # Kotlin DSL: compileSdk = flutter.compileSdkVersion / targetSdk = flutter.targetSdkVersion
-          sed -i -E 's/compileSdk[[:space:]]*=[[:space:]]*flutter\.compileSdkVersion/compileSdk = 35/' "$FILE"
-          sed -i -E 's/targetSdk[[:space:]]*=[[:space:]]*flutter\.targetSdkVersion/targetSdk = 35/' "$FILE"
+          sed -i -E 's/compileSdk[[:space:]]*=[[:space:]]*flutter\.compileSdkVersion/compileSdk = 36/' "$FILE"
+          sed -i -E 's/targetSdk[[:space:]]*=[[:space:]]*flutter\.targetSdkVersion/targetSdk = 36/' "$FILE"
           # Legacy Groovy: compileSdkVersion flutter.compileSdkVersion / targetSdkVersion flutter.targetSdkVersion
-          sed -i -E 's/compileSdkVersion[[:space:]]+flutter\.compileSdkVersion/compileSdkVersion 35/' "$FILE"
-          sed -i -E 's/targetSdkVersion[[:space:]]+flutter\.targetSdkVersion/targetSdkVersion 35/' "$FILE"
+          sed -i -E 's/compileSdkVersion[[:space:]]+flutter\.compileSdkVersion/compileSdkVersion 36/' "$FILE"
+          sed -i -E 's/targetSdkVersion[[:space:]]+flutter\.targetSdkVersion/targetSdkVersion 36/' "$FILE"
 
           if diff -q "$FILE" "$FILE.bak" > /dev/null; then
             echo "::error::No compileSdk/targetSdk line matched in $FILE — template format changed, fix the sed patterns."
