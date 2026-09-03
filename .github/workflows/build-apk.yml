@@ -124,6 +124,43 @@ jobs:
       - name: flutter pub get
         run: flutter pub get
 
+      # DIAGNOSTIC ONLY — no fix applied here. The local.properties
+      # override (previous step) was verified present, and the build
+      # still failed with ":syncfusion_flutter_pdfviewer is currently
+      # compiled against android-31" (CI run 33724022261) — proving the
+      # assumption that every Flutter-plugin build.gradle reads the
+      # shared flutter.compileSdkVersion/local.properties value is wrong
+      # for this Flutter version, at least for this plugin. Rather than
+      # guess a fourth mechanism, this step prints the plugin's ACTUAL
+      # build.gradle(.kts) from the pub-cache, the generated
+      # android/settings.gradle.kts (which wires plugin subprojects into
+      # the build), and .flutter-plugins-dependencies, so the next fix is
+      # based on what is really there.
+      - name: DEBUG — locate syncfusion_flutter_pdfviewer's real build.gradle
+        run: |
+          echo "===== android/settings.gradle.kts ====="
+          cat android/settings.gradle.kts 2>/dev/null || echo "(not found)"
+
+          echo "===== .flutter-plugins-dependencies ====="
+          cat .flutter-plugins-dependencies 2>/dev/null || echo "(not found)"
+
+          echo "===== searching PUB_CACHE ($PUB_CACHE) for syncfusion_flutter_pdfviewer ====="
+          PKG_DIR=$(find "$PUB_CACHE" -maxdepth 4 -type d -iname "syncfusion_flutter_pdfviewer-*" 2>/dev/null | sort | tail -n1)
+          echo "PKG_DIR=$PKG_DIR"
+
+          if [ -n "$PKG_DIR" ]; then
+            echo "===== $PKG_DIR/android directory listing ====="
+            find "$PKG_DIR/android" -maxdepth 2 -type f 2>/dev/null
+
+            echo "===== $PKG_DIR/android/build.gradle ====="
+            cat "$PKG_DIR/android/build.gradle" 2>/dev/null || echo "(not present)"
+
+            echo "===== $PKG_DIR/android/build.gradle.kts ====="
+            cat "$PKG_DIR/android/build.gradle.kts" 2>/dev/null || echo "(not present)"
+          else
+            echo "::warning::Could not locate syncfusion_flutter_pdfviewer under PUB_CACHE"
+          fi
+
       - name: flutter analyze
         run: flutter analyze --no-fatal-infos
 
