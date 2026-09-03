@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/app_constants.dart';
@@ -12,6 +13,7 @@ import '../repositories/curriculum_repository.dart';
 import '../repositories/documents_repository.dart';
 import '../repositories/notifications_repository.dart';
 import '../repositories/search_repository.dart';
+import '../services/auth_service.dart';
 import '../services/cache_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/favorites_service.dart';
@@ -21,6 +23,14 @@ import '../services/fcm_service.dart';
 
 final firestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
 final functionsProvider = Provider<FirebaseFunctions>((ref) => FirebaseFunctions.instance);
+final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
+
+// --- Auth ------------------------------------------------------------------
+
+final authServiceProvider = Provider<AuthService>((ref) => AuthService(ref.watch(firebaseAuthProvider)));
+
+final authStateChangesProvider =
+    StreamProvider<User?>((ref) => ref.watch(authServiceProvider).authStateChanges());
 
 // --- Services (initialized in main() before runApp, overridden here) ---
 
