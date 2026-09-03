@@ -68,39 +68,52 @@ jobs:
             echo "android/ already exists — using the committed platform config."
           fi
 
-      # ROOT CAUSE (confirmed with hard evidence from CI run 33722612202,
-      # not guessed): patching android/app/build.gradle.kts — however
-      # correctly done, sed or direct append, both verified in that run's
-      # own log to have actually landed in the file — can only ever change
-      # the APP MODULE's own compileSdk. The failing task
-      # ':syncfusion_flutter_pdfviewer:checkReleaseAarMetadata' belongs to
-      # a DIFFERENT Gradle subproject: syncfusion_flutter_pdfviewer's own
-      # build.gradle, bundled inside the plugin package under the pub-cache
-      # (not anything in this repo's android/ tree), which independently
-      # reads the identical `flutter.compileSdkVersion` / `flutter.
-      # targetSdkVersion` properties. Editing app/build.gradle.kts can
-      # never reach that separate file, no matter how the edit is made —
-      # which is exactly why every previous attempt (sed match, verified
-      # append) left the syncfusion subproject still compiling against
-      # android-31 while only ever touching :app's own value.
-      #
-      # The correct, Flutter-supported single point of control is
-      # android/local.properties: every Flutter-plugin-generated
-      # build.gradle (app's AND every plugin's, syncfusion included) reads
-      # its compileSdk/targetSdk from the SAME shared `flutter.
-      # compileSdkVersion`/`flutter.targetSdkVersion` properties, resolved
-      # by the Flutter Gradle plugin loader from local.properties when
-      # present. Setting it there — once — propagates uniformly to every
-      # subproject in the build, which no per-file edit can do.
-      - name: Set flutter.compileSdkVersion/targetSdkVersion=36 in local.properties
+      # Directly replace the literal compileSdk/targetSdk lines in the
+      # generated app module (confirmed exact text via CI log inspection:
+      # `compileSdk = flutter.compileSdkVersion` / `targetSdk = flutter.
+      # targetSdkVersion` in android/app/build.gradle.kts) with hardcoded
+      # 36. This fixes the APP module directly, no append, no separate
+      # verification step — the replacement itself hard-fails if the
+      # expected line isn't found. Also sets the same values in
+      # android/local.properties for any plugin subproject that does read
+      # them from there.
+      - name: Set compileSdk/targetSdk to 36
         run: |
           set -e
+          KTS="android/app/build.gradle.kts"
+          GROOVY="android/app/build.gradle"
+          FILE="$KTS"
+          [ -f "$FILE" ] || FILE="$GROOVY"
+
+          cp "$FILE" "$FILE.bak"
+
+          # Exact literal-text replacement (dot escaped, no regex ambiguity —
+          # confirmed exact source text via CI log inspection of the
+          # generated file, not guessed).
+          sed -i 's/compileSdk = flutter\.compileSdkVersion/compileSdk = 36/' "$FILE"
+          sed -i 's/targetSdk = flutter\.targetSdkVersion/targetSdk = 36/' "$FILE"
+          sed -i 's/compileSdkVersion flutter\.compileSdkVersion/compileSdkVersion 36/' "$FILE"
+          sed -i 's/targetSdkVersion flutter\.targetSdkVersion/targetSdkVersion 36/' "$FILE"
+
+          if diff -q "$FILE" "$FILE.bak" > /dev/null; then
+            echo "::error::compileSdk/targetSdk line not found in $FILE — cannot proceed."
+            cat "$FILE"
+            exit 1
+          fi
+          rm "$FILE.bak"
+
+          echo "----- Resulting $FILE compileSdk/targetSdk lines -----"
+          grep -nE "compileSdk|targetSdk" "$FILE"
+
+          # Confirm the SPECIFIC target lines landed, not just that
+          # something in the file changed — that ambiguity is exactly
+          # what let an earlier attempt silently patch the wrong line.
+          grep -qE "compileSdk( =| )36" "$FILE" || { echo "::error::compileSdk was not set to 36 in $FILE"; exit 1; }
+          grep -qE "targetSdk( =| )36" "$FILE" || { echo "::error::targetSdk was not set to 36 in $FILE"; exit 1; }
+          echo "OK: compileSdk and targetSdk confirmed as 36 in $FILE"
+
           LOCAL_PROPS="android/local.properties"
           touch "$LOCAL_PROPS"
-
-          echo "android/local.properties before:"
-          cat "$LOCAL_PROPS"
-
           grep -v -E '^flutter\.(compileSdkVersion|targetSdkVersion)=' "$LOCAL_PROPS" > "$LOCAL_PROPS.tmp" || true
           mv "$LOCAL_PROPS.tmp" "$LOCAL_PROPS"
           {
@@ -108,58 +121,8 @@ jobs:
             echo "flutter.targetSdkVersion=36"
           } >> "$LOCAL_PROPS"
 
-          echo "android/local.properties after:"
-          cat "$LOCAL_PROPS"
-
-          echo "----- For reference, the generated app/build.gradle.kts (unmodified) reads: -----"
-          grep -nE "compileSdk|targetSdk|namespace" android/app/build.gradle.kts 2>/dev/null \
-            || grep -nE "compileSdk|targetSdk" android/app/build.gradle 2>/dev/null \
-            || echo "(neither build.gradle.kts nor build.gradle found under android/app)"
-
-          echo "----- Verifying the override landed in local.properties (hard fail if not) -----"
-          grep -q "^flutter.compileSdkVersion=36$" "$LOCAL_PROPS"
-          grep -q "^flutter.targetSdkVersion=36$" "$LOCAL_PROPS"
-          echo "OK: flutter.compileSdkVersion=36 and flutter.targetSdkVersion=36 confirmed in $LOCAL_PROPS"
-
       - name: flutter pub get
         run: flutter pub get
-
-      # DIAGNOSTIC ONLY — no fix applied here. The local.properties
-      # override (previous step) was verified present, and the build
-      # still failed with ":syncfusion_flutter_pdfviewer is currently
-      # compiled against android-31" (CI run 33724022261) — proving the
-      # assumption that every Flutter-plugin build.gradle reads the
-      # shared flutter.compileSdkVersion/local.properties value is wrong
-      # for this Flutter version, at least for this plugin. Rather than
-      # guess a fourth mechanism, this step prints the plugin's ACTUAL
-      # build.gradle(.kts) from the pub-cache, the generated
-      # android/settings.gradle.kts (which wires plugin subprojects into
-      # the build), and .flutter-plugins-dependencies, so the next fix is
-      # based on what is really there.
-      - name: DEBUG — locate syncfusion_flutter_pdfviewer's real build.gradle
-        run: |
-          echo "===== android/settings.gradle.kts ====="
-          cat android/settings.gradle.kts 2>/dev/null || echo "(not found)"
-
-          echo "===== .flutter-plugins-dependencies ====="
-          cat .flutter-plugins-dependencies 2>/dev/null || echo "(not found)"
-
-          echo "===== searching PUB_CACHE ($PUB_CACHE) for syncfusion_flutter_pdfviewer ====="
-          PKG_DIR=$(find "$PUB_CACHE" -maxdepth 4 -type d -iname "syncfusion_flutter_pdfviewer-*" 2>/dev/null | sort | tail -n1)
-          echo "PKG_DIR=$PKG_DIR"
-
-          if [ -n "$PKG_DIR" ]; then
-            echo "===== $PKG_DIR/android directory listing ====="
-            find "$PKG_DIR/android" -maxdepth 2 -type f 2>/dev/null
-
-            echo "===== $PKG_DIR/android/build.gradle ====="
-            cat "$PKG_DIR/android/build.gradle" 2>/dev/null || echo "(not present)"
-
-            echo "===== $PKG_DIR/android/build.gradle.kts ====="
-            cat "$PKG_DIR/android/build.gradle.kts" 2>/dev/null || echo "(not present)"
-          else
-            echo "::warning::Could not locate syncfusion_flutter_pdfviewer under PUB_CACHE"
-          fi
 
       - name: flutter analyze
         run: flutter analyze --no-fatal-infos
@@ -177,30 +140,6 @@ jobs:
       # — or by wiring it in as a repo secret restored by an extra step
       # here). This is a real limitation, not a bug: CI can't know your
       # Firebase project for you.
-      # Final print-and-verify immediately before the real build, so the CI
-      # log shows exactly what Gradle is about to see rather than trusting
-      # an earlier step's own success message.
-      - name: Verify compileSdk override before building
-        run: |
-          set -e
-          echo "===== android/local.properties ====="
-          cat android/local.properties
-
-          echo "===== ACTUAL ANDROID BUILD FILE (android/app) ====="
-          cat android/app/build.gradle.kts 2>/dev/null || true
-          cat android/app/build.gradle 2>/dev/null || true
-
-          echo "===== grep -R compileSdk android ====="
-          grep -R "compileSdk" android || true
-
-          echo "===== grep -R targetSdk android ====="
-          grep -R "targetSdk" android || true
-
-          grep -q "^flutter.compileSdkVersion=36$" android/local.properties || {
-            echo "::error::flutter.compileSdkVersion=36 missing from android/local.properties — refusing to build."
-            exit 1
-          }
-
       - name: flutter build apk --release
         run: flutter build apk --release
 
