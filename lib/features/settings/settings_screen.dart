@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../providers/app_providers.dart';
+import '../../routing/app_router.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -11,11 +12,41 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fcm = ref.watch(fcmServiceProvider);
+    final authState = ref.watch(authStateChangesProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('More')),
       body: ListView(
         children: [
+          const _SectionHeader('Account'),
+          authState.when(
+            data: (user) => user == null
+                ? ListTile(
+                    leading: const Icon(Icons.login),
+                    title: const Text('Sign In'),
+                    subtitle: const Text('Sync favorites and preferences'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(Routes.login),
+                  )
+                : ListTile(
+                    leading: const Icon(Icons.account_circle_outlined),
+                    title: Text(user.email ?? 'Signed in'),
+                    subtitle: const Text('Tap to log out'),
+                    trailing: const Icon(Icons.logout),
+                    onTap: () => ref.read(authServiceProvider).signOut(),
+                  ),
+            loading: () => const ListTile(
+              leading: Icon(Icons.account_circle_outlined),
+              title: Text('Loading…'),
+            ),
+            error: (error, stackTrace) => ListTile(
+              leading: const Icon(Icons.error_outline),
+              title: const Text('Sign In'),
+              subtitle: const Text('Account status unavailable'),
+              onTap: () => context.push(Routes.login),
+            ),
+          ),
+          const Divider(),
           const _SectionHeader('Notification Categories'),
           for (final topic in AppConstants.fcmTopics)
             FutureBuilder<bool>(

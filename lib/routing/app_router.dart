@@ -1,5 +1,8 @@
 import 'package:go_router/go_router.dart';
 
+import '../features/auth/forgot_password_screen.dart';
+import '../features/auth/login_screen.dart';
+import '../features/auth/signup_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/curriculum/curriculum_screen.dart';
 import '../features/curriculum/grade_subjects_screen.dart';
@@ -37,6 +40,9 @@ class Routes {
   static const settings = '/settings';
   static const about = '/settings/about';
   static const assistant = '/assistant';
+  static const login = '/login';
+  static const signUp = '/signup';
+  static const forgotPassword = '/forgot-password';
 }
 
 final appRouter = GoRouter(
@@ -85,5 +91,11 @@ final appRouter = GoRouter(
         GoRoute(path: Routes.assistant, builder: (context, state) => const AssistantScreen()),
       ],
     ),
+    // Auth screens sit outside the ShellRoute so they render without the
+    // bottom navigation bar — pushed on top of whichever tab the user was
+    // on (e.g. from Settings), not part of the tabbed flow itself.
+    GoRoute(path: Routes.login, builder: (context, state) => const LoginScreen()),
+    GoRoute(path: Routes.signUp, builder: (context, state) => const SignUpScreen()),
+    GoRoute(path: Routes.forgotPassword, builder: (context, state) => const ForgotPasswordScreen()),
   ],
 );
