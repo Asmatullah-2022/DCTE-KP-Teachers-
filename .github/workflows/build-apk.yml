@@ -108,8 +108,8 @@ jobs:
           # Confirm the SPECIFIC target lines landed, not just that
           # something in the file changed — that ambiguity is exactly
           # what let an earlier attempt silently patch the wrong line.
-          grep -qE "compileSdk( =| )36" "$FILE" || { echo "::error::compileSdk was not set to 36 in $FILE"; exit 1; }
-          grep -qE "targetSdk( =| )36" "$FILE" || { echo "::error::targetSdk was not set to 36 in $FILE"; exit 1; }
+          grep -qE "compileSdk(Version)?[[:space:]]*=?[[:space:]]*36" "$FILE" || { echo "::error::compileSdk was not set to 36 in $FILE"; exit 1; }
+          grep -qE "targetSdk(Version)?[[:space:]]*=?[[:space:]]*36" "$FILE" || { echo "::error::targetSdk was not set to 36 in $FILE"; exit 1; }
           echo "OK: compileSdk and targetSdk confirmed as 36 in $FILE"
 
           LOCAL_PROPS="android/local.properties"
