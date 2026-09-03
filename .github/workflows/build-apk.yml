@@ -68,6 +68,52 @@ jobs:
             echo "android/ already exists — using the committed platform config."
           fi
 
+      # `flutter create`'s default compileSdk (whatever this Flutter version's
+      # template picks, e.g. 31) is too low for modern plugin AARs.
+      # syncfusion_flutter_pdfviewer and its AndroidX transitive deps
+      # (androidx.core, androidx.fragment, androidx.lifecycle:*:2.7.0,
+      # device_info_plus, etc.) require compiling against API 34+, or the
+      # build fails at :syncfusion_flutter_pdfviewer:checkReleaseAarMetadata
+      # with "requires ... to compile against version 34 or later". Pin
+      # compileSdk/targetSdk to 35 in the generated app/build.gradle(.kts)
+      # regardless of the template's own default, and fail loudly if the
+      # expected setting line isn't found so a template change doesn't
+      # silently no-op this fix.
+      - name: Raise compileSdk/targetSdk to 35 for modern plugin AARs
+        run: |
+          set -e
+          KTS="android/app/build.gradle.kts"
+          GROOVY="android/app/build.gradle"
+
+          if [ -f "$KTS" ]; then
+            FILE="$KTS"
+          elif [ -f "$GROOVY" ]; then
+            FILE="$GROOVY"
+          else
+            echo "::error::Neither $KTS nor $GROOVY exists after android/ generation."
+            exit 1
+          fi
+
+          echo "Patching $FILE"
+          cp "$FILE" "$FILE.bak"
+
+          # Kotlin DSL: compileSdk = flutter.compileSdkVersion / targetSdk = flutter.targetSdkVersion
+          sed -i -E 's/compileSdk[[:space:]]*=[[:space:]]*flutter\.compileSdkVersion/compileSdk = 35/' "$FILE"
+          sed -i -E 's/targetSdk[[:space:]]*=[[:space:]]*flutter\.targetSdkVersion/targetSdk = 35/' "$FILE"
+          # Legacy Groovy: compileSdkVersion flutter.compileSdkVersion / targetSdkVersion flutter.targetSdkVersion
+          sed -i -E 's/compileSdkVersion[[:space:]]+flutter\.compileSdkVersion/compileSdkVersion 35/' "$FILE"
+          sed -i -E 's/targetSdkVersion[[:space:]]+flutter\.targetSdkVersion/targetSdkVersion 35/' "$FILE"
+
+          if diff -q "$FILE" "$FILE.bak" > /dev/null; then
+            echo "::error::No compileSdk/targetSdk line matched in $FILE — template format changed, fix the sed patterns."
+            cat "$FILE"
+            exit 1
+          fi
+          rm "$FILE.bak"
+
+          echo "Resulting compileSdk/targetSdk lines:"
+          grep -nE "compileSdk|targetSdk" "$FILE"
+
       - name: flutter pub get
         run: flutter pub get
 
