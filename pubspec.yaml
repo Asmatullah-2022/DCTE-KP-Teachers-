@@ -1,10 +1,10 @@
 name: dcte_kp_teachers
-description: "DCTE KP Teachers – Curriculum, Notifications, Documents & Teacher Resources (independent, unofficial)."
+description: "DCTE KP Teachers — Curriculum, Notifications, Documents & Teacher Resources (independent, unofficial)."
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: '>=3.4.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -12,46 +12,66 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
+  # Firebase
   firebase_core: ^3.6.0
   cloud_firestore: ^5.4.4
   firebase_storage: ^12.3.4
   firebase_messaging: ^15.1.3
   firebase_app_check: ^0.3.1+7
-  firebase_push: ^5.3.1
+  firebase_auth: ^5.3.1
   cloud_functions: ^5.1.3
 
+  # State management / routing
   flutter_riverpod: ^2.6.1
   go_router: ^14.6.1
 
+  # UI
   cupertino_icons: ^1.0.8
   flutter_svg: ^2.0.10+1
   cached_network_image: ^3.4.1
   shimmer: ^3.0.0
 
-  syncfusion_flutter_pdfviewer: ^32.2.9
+  # PDF — 29.1.33 is the lowest version whose intl constraint (>=0.18.1
+  # <0.21.0) accepts the intl 0.20.x that a modern Flutter's
+  # flutter_localizations requires; versions before it cap intl below
+  # 0.20.0 (a real conflict), and versions 30+ raise the Dart SDK floor to
+  # ^3.7.0, which is a needless additional risk. Verified against the live
+  # pub.dev registry, not guessed.
+  syncfusion_flutter_pdfviewer: ^29.1.33
 
-  http: ^1.2.2
-
+  # Local caching / storage
   shared_preferences: ^2.3.2
   hive: ^2.2.3
   hive_flutter: ^1.1.0
 
+  # Networking / connectivity
   connectivity_plus: ^6.1.0
+  http: ^1.2.2
 
-  intl: ^0.20.2
+  # Utilities — intl is a plain range, not a caret, because
+  # flutter_localizations pins it to an exact version tied to whatever
+  # Flutter SDK release is doing the build; a caret can't flex to match
+  # that. This range is verified compatible with syncfusion's own intl
+  # window above.
+  intl: '>=0.19.0 <0.21.0'
   url_launcher: ^6.3.1
-  share_plus: ^10.0.2
-  crypto: ^1.0.5
+  share_plus: ^10.1.2
+  crypto: ^3.0.5
   logger: ^2.4.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
-  mockito: ^1.0.4
+  mocktail: ^1.0.4
   build_runner: ^2.4.13
   hive_generator: ^2.0.1
 
 flutter:
   uses-material-design: true
   generate: true
+
+  # No bundled asset files ship in this MVP — the in-app logo is drawn
+  # programmatically (see lib/features/home/home_screen.dart). Add real
+  # image assets under assets/images/ and declare them here if you swap
+  # in a designed logo/icon set.
