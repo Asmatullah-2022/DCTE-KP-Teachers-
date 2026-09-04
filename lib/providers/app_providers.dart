@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/app_constants.dart';
 import '../models/academic_calendar_model.dart';
+import '../models/curriculum_model.dart';
 import '../models/grade_model.dart';
 import '../models/notification_model.dart';
 import '../core/utils/semester_calculator.dart';
@@ -49,6 +50,12 @@ final isAdminProvider = Provider<bool>((ref) {
 
 final curriculumAdminServiceProvider =
     Provider<CurriculumAdminService>((ref) => CurriculumAdminService(ref.watch(firestoreProvider)));
+
+/// All curriculum units awaiting admin verification — only watched by the
+/// Admin Tools UI (see settings_screen.dart), not gated here since the
+/// real access boundary is firestore.rules, not this provider.
+final pendingCurriculumUnitsProvider =
+    StreamProvider<List<CurriculumModel>>((ref) => ref.watch(curriculumAdminServiceProvider).watchPendingUnits());
 
 // --- Services (initialized in main() before runApp, overridden here) ---
 

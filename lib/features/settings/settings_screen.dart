@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../models/curriculum_model.dart';
 import '../../providers/app_providers.dart';
 import '../../routing/app_router.dart';
 
@@ -15,6 +16,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _seeding = false;
+  bool _verifyingAll = false;
+  final Set<String> _verifyingIds = {};
 
   Future<void> _seedGrade1English() async {
     setState(() => _seeding = true);
@@ -40,11 +43,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _verifyAndPublish(String curriculumId) async {
+    setState(() => _verifyingIds.add(curriculumId));
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(curriculumAdminServiceProvider).verifyAndPublish(curriculumId);
+      messenger.showSnackBar(const SnackBar(content: Text('Curriculum verified and published successfully.')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Verification failed: $e')));
+    } finally {
+      if (mounted) setState(() => _verifyingIds.remove(curriculumId));
+    }
+  }
+
+  Future<void> _verifyAllGrade1EnglishSemesterI() async {
+    setState(() => _verifyingAll = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(curriculumAdminServiceProvider).verifyAllPending(
+            gradeId: 'grade-1',
+            subjectId: 'english',
+            semester: 'Semester I',
+          );
+      messenger.showSnackBar(const SnackBar(content: Text('Curriculum verified and published successfully.')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Verification failed: $e')));
+    } finally {
+      if (mounted) setState(() => _verifyingAll = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final fcm = ref.watch(fcmServiceProvider);
     final authState = ref.watch(authStateChangesProvider);
     final isAdmin = ref.watch(isAdminProvider);
+    final pendingUnitsAsync = isAdmin ? ref.watch(pendingCurriculumUnitsProvider) : const AsyncValue<List<CurriculumModel>>.data([]);
 
     return Scaffold(
       appBar: AppBar(title: const Text('More')),
@@ -132,6 +166,50 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               subtitle: const Text('Imports the 11 bundled units into live Firestore (skips any already there)'),
               enabled: !_seeding,
               onTap: _seedGrade1English,
+            ),
+            ListTile(
+              leading: _verifyingAll
+                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.playlist_add_check_outlined),
+              title: const Text('Verify All & Publish — Grade 1 English, Semester I'),
+              subtitle: const Text('Marks every pending unit in this grade/subject/semester as verified'),
+              enabled: !_verifyingAll,
+              onTap: _verifyAllGrade1EnglishSemesterI,
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text('Pending Curriculum Units', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+            pendingUnitsAsync.when(
+              data: (units) => units.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text('No units pending verification.', style: TextStyle(color: Colors.black54)),
+                    )
+                  : Column(
+                      children: [
+                        for (final unit in units)
+                          ListTile(
+                            dense: true,
+                            title: Text(unit.unitTitle),
+                            subtitle: Text('${unit.gradeId} • ${unit.subjectId} • ${unit.semester} • Unit ${unit.unitNumber}'),
+                            trailing: _verifyingIds.contains(unit.curriculumId)
+                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                : TextButton(
+                                    onPressed: () => _verifyAndPublish(unit.curriculumId),
+                                    child: const Text('Verify & Publish'),
+                                  ),
+                          ),
+                      ],
+                    ),
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, st) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text('Could not load pending units: $e', style: const TextStyle(color: Colors.red)),
+              ),
             ),
           ],
         ],

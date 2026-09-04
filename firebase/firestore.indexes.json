@@ -16,6 +16,7 @@
         { "fieldPath": "gradeId", "order": "ASCENDING" },
         { "fieldPath": "subjectId", "order": "ASCENDING" },
         { "fieldPath": "semester", "order": "ASCENDING" },
+        { "fieldPath": "needsVerification", "order": "ASCENDING" },
         { "fieldPath": "unitNumber", "order": "ASCENDING" }
       ]
     },
@@ -25,7 +26,18 @@
       "fields": [
         { "fieldPath": "gradeId", "order": "ASCENDING" },
         { "fieldPath": "subjectId", "order": "ASCENDING" },
+        { "fieldPath": "needsVerification", "order": "ASCENDING" },
         { "fieldPath": "unitNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "curriculum",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "gradeId", "order": "ASCENDING" },
+        { "fieldPath": "subjectId", "order": "ASCENDING" },
+        { "fieldPath": "semester", "order": "ASCENDING" },
+        { "fieldPath": "needsVerification", "order": "ASCENDING" }
       ]
     },
     {

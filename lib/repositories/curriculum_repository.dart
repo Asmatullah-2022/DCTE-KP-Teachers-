@@ -10,11 +10,14 @@ import 'local_curriculum_data.dart';
 /// Public reads only — write access is restricted to admins by
 /// firestore.rules; see firebase/firestore.rules.
 ///
-/// Every watch* stream falls back to the bundled local dataset
-/// (local_curriculum_data.dart) whenever Firestore errors (e.g. rules not
-/// yet deployed on the live project) or returns no data (e.g. not yet
-/// seeded) — so Curriculum always shows verified content instead of an
-/// error screen. Firestore data is preferred whenever it's actually there.
+/// watchGrades/watchSubjectsForGrade fall back to the bundled local dataset
+/// (local_curriculum_data.dart) whenever Firestore errors OR returns no
+/// data — grades/subjects have no verification concept, so "empty" and
+/// "unreachable" are treated the same. watchUnits/watchAllUnitsForSubject
+/// only return needsVerification == false units and only fall back to
+/// local data on a real Firestore error — an empty (nothing verified yet)
+/// result is shown as empty, not papered over; see CurriculumAdminService
+/// for how a unit gets verified.
 class CurriculumRepository {
   final FirebaseFirestore _db;
   CurriculumRepository(this._db);
@@ -45,6 +48,12 @@ class CurriculumRepository {
     yield* withLocalFallback('CurriculumRepository.watchSubjectsForGrade', remote, local);
   }
 
+  /// Publicly visible units only (needsVerification == false) — an admin
+  /// must verify a freshly-imported unit (see CurriculumAdminService)
+  /// before it appears here. `substituteOnEmpty: false` because "zero
+  /// verified units yet" is a real, honest state (not the same as
+  /// Firestore being unreachable) — it should show as empty, not get
+  /// papered over with the bundled fallback's unverified content.
   Stream<List<CurriculumModel>> watchUnits({
     required String gradeId,
     required String subjectId,
@@ -59,16 +68,18 @@ class CurriculumRepository {
         .where('gradeId', isEqualTo: gradeId)
         .where('subjectId', isEqualTo: subjectId)
         .where('semester', isEqualTo: semester)
+        .where('needsVerification', isEqualTo: false)
         .orderBy('unitNumber')
         .snapshots()
         .map((s) => s.docs.map(CurriculumModel.fromDoc).toList());
-    yield* withLocalFallback('CurriculumRepository.watchUnits', remote, local);
+    yield* withLocalFallback('CurriculumRepository.watchUnits', remote, local, substituteOnEmpty: false);
   }
 
-  /// All units for a grade/subject across both semesters, in syllabus
-  /// order (sorted by unitNumber, not partitioned by semester) — e.g. for
-  /// a combined "All Units" view. Existing screens still use [watchUnits]
-  /// per-semester; this is additive, not a replacement.
+  /// All publicly visible units (needsVerification == false) for a
+  /// grade/subject across both semesters, in syllabus order — e.g. for a
+  /// combined "All Units" view. Existing screens still use [watchUnits]
+  /// per-semester; this is additive, not a replacement. Same
+  /// empty-is-honest reasoning as [watchUnits] applies here.
   Stream<List<CurriculumModel>> watchAllUnitsForSubject({
     required String gradeId,
     required String subjectId,
@@ -81,10 +92,11 @@ class CurriculumRepository {
         .collection(AppConstants.collectionCurriculum)
         .where('gradeId', isEqualTo: gradeId)
         .where('subjectId', isEqualTo: subjectId)
+        .where('needsVerification', isEqualTo: false)
         .orderBy('unitNumber')
         .snapshots()
         .map((s) => s.docs.map(CurriculumModel.fromDoc).toList());
-    yield* withLocalFallback('CurriculumRepository.watchAllUnitsForSubject', remote, local);
+    yield* withLocalFallback('CurriculumRepository.watchAllUnitsForSubject', remote, local, substituteOnEmpty: false);
   }
 
   Future<CurriculumModel?> getUnit(String curriculumId) async {
