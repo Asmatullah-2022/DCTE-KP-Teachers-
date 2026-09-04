@@ -171,6 +171,28 @@ jobs:
       - name: flutter build apk --release
         run: flutter build apk --release
 
+      # Package the real, tool-generated (flutter create + the compileSdk
+      # patches above) android/ folder as a downloadable zip. This is NOT a
+      # hand-authored copy — it's the exact tree Gradle just built the APK
+      # from, gradle-wrapper.jar and all, taken after this run's own patches
+      # so it matches app-release.apk exactly. The repo itself still does not
+      # commit android/ (see the "Generate android/ platform folder if
+      # missing" step above) — this is a downloadable artifact only.
+      - name: Zip the generated android/ folder
+        run: |
+          set -e
+          [ -d android ] || { echo "::error::android/ directory not found after build."; exit 1; }
+          zip -r -q android-folder.zip android -x '*/.gradle/*' -x '*/build/*'
+          ls -lh android-folder.zip
+
+      - name: Upload android/ folder artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-folder
+          path: android-folder.zip
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
