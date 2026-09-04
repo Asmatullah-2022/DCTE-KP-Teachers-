@@ -6,13 +6,45 @@ import '../../core/constants/app_constants.dart';
 import '../../providers/app_providers.dart';
 import '../../routing/app_router.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _seeding = false;
+
+  Future<void> _seedGrade1English() async {
+    setState(() => _seeding = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final result = await ref.read(curriculumAdminServiceProvider).seedBundledUnits(
+            gradeId: 'grade-1',
+            subjectId: 'english',
+          );
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            result.imported > 0
+                ? '${result.imported} Grade 1 English units imported successfully.'
+                : 'Grade 1 English units already imported (${result.alreadyPresent} present, nothing new to add).',
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Import failed: $e')));
+    } finally {
+      if (mounted) setState(() => _seeding = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final fcm = ref.watch(fcmServiceProvider);
     final authState = ref.watch(authStateChangesProvider);
+    final isAdmin = ref.watch(isAdminProvider).value ?? false;
 
     return Scaffold(
       appBar: AppBar(title: const Text('More')),
@@ -89,6 +121,19 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.go('/settings/about'),
           ),
+          if (isAdmin) ...[
+            const Divider(),
+            const _SectionHeader('Admin Tools'),
+            ListTile(
+              leading: _seeding
+                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.cloud_upload_outlined),
+              title: const Text('Seed Grade 1 English Curriculum'),
+              subtitle: const Text('Imports the 11 bundled units into live Firestore (skips any already there)'),
+              enabled: !_seeding,
+              onTap: _seedGrade1English,
+            ),
+          ],
         ],
       ),
     );

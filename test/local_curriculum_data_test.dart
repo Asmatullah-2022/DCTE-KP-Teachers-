@@ -30,4 +30,15 @@ void main() {
     expect(units, isNotEmpty);
     expect(units.every((u) => u.gradeId.isNotEmpty && u.subjectId.isNotEmpty), isTrue);
   });
+
+  test('bundled curriculum has exactly 11 Grade 1 English units with deterministic ids', () async {
+    final units = await LocalCurriculumData.curriculum();
+    final grade1English = units.where((u) => u.gradeId == 'grade-1' && u.subjectId == 'english').toList()
+      ..sort((a, b) => a.unitNumber.compareTo(b.unitNumber));
+
+    expect(grade1English, hasLength(11));
+    expect(grade1English.map((u) => u.unitNumber), List.generate(11, (i) => i + 1));
+    expect(grade1English.every((u) => u.curriculumId == 'grade-1-english-${u.semester == 'Semester I' ? 'semester-i' : 'semester-ii'}-unit-${u.unitNumber}'), isTrue);
+    expect(grade1English.map((u) => u.semester).toSet(), {'Semester I', 'Semester II'});
+  });
 }

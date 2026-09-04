@@ -65,6 +65,28 @@ class CurriculumRepository {
     yield* withLocalFallback('CurriculumRepository.watchUnits', remote, local);
   }
 
+  /// All units for a grade/subject across both semesters, in syllabus
+  /// order (sorted by unitNumber, not partitioned by semester) — e.g. for
+  /// a combined "All Units" view. Existing screens still use [watchUnits]
+  /// per-semester; this is additive, not a replacement.
+  Stream<List<CurriculumModel>> watchAllUnitsForSubject({
+    required String gradeId,
+    required String subjectId,
+  }) async* {
+    final local = (await LocalCurriculumData.curriculum())
+        .where((c) => c.gradeId == gradeId && c.subjectId == subjectId)
+        .toList()
+      ..sort((a, b) => a.unitNumber.compareTo(b.unitNumber));
+    final remote = _db
+        .collection(AppConstants.collectionCurriculum)
+        .where('gradeId', isEqualTo: gradeId)
+        .where('subjectId', isEqualTo: subjectId)
+        .orderBy('unitNumber')
+        .snapshots()
+        .map((s) => s.docs.map(CurriculumModel.fromDoc).toList());
+    yield* withLocalFallback('CurriculumRepository.watchAllUnitsForSubject', remote, local);
+  }
+
   Future<CurriculumModel?> getUnit(String curriculumId) async {
     try {
       final doc = await _db.collection(AppConstants.collectionCurriculum).doc(curriculumId).get();

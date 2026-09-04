@@ -16,6 +16,7 @@ import '../repositories/search_repository.dart';
 import '../services/auth_service.dart';
 import '../services/cache_service.dart';
 import '../services/connectivity_service.dart';
+import '../services/curriculum_admin_service.dart';
 import '../services/favorites_service.dart';
 import '../services/fcm_service.dart';
 
@@ -31,6 +32,22 @@ final authServiceProvider = Provider<AuthService>((ref) => AuthService(ref.watch
 
 final authStateChangesProvider =
     StreamProvider<User?>((ref) => ref.watch(authServiceProvider).authStateChanges());
+
+/// True only if the signed-in user actually holds the `admin` custom claim
+/// (see README.md §5) — the same claim every Firestore rule and admin
+/// Cloud Function checks. Drives visibility of admin-only UI (e.g. the
+/// curriculum seeding button in Settings); never trust this alone for
+/// security, since the real enforcement is server-side (firestore.rules /
+/// requireAdmin) — this only controls what's shown, not what's allowed.
+final isAdminProvider = FutureProvider<bool>((ref) async {
+  final user = ref.watch(authStateChangesProvider).value;
+  if (user == null) return false;
+  final tokenResult = await user.getIdTokenResult();
+  return tokenResult.claims?['admin'] == true;
+});
+
+final curriculumAdminServiceProvider =
+    Provider<CurriculumAdminService>((ref) => CurriculumAdminService(ref.watch(firestoreProvider)));
 
 // --- Services (initialized in main() before runApp, overridden here) ---
 

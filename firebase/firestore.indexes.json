@@ -20,6 +20,15 @@
       ]
     },
     {
+      "collectionGroup": "curriculum",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "gradeId", "order": "ASCENDING" },
+        { "fieldPath": "subjectId", "order": "ASCENDING" },
+        { "fieldPath": "unitNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [
