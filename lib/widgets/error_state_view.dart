@@ -21,6 +21,15 @@ class ErrorStateView extends StatelessWidget {
         onRetry: onRetry,
       );
 
+  /// For content with no bundled offline fallback (live announcements,
+  /// documents) — unlike [sourceUnavailable], there is no cached data being
+  /// shown here, so the copy doesn't claim there is.
+  factory ErrorStateView.liveDataUnavailable({VoidCallback? onRetry}) => ErrorStateView(
+        message: 'Unable to load live updates right now. Check your connection and try again.',
+        icon: Icons.cloud_off,
+        onRetry: onRetry,
+      );
+
   factory ErrorStateView.pdfFailed({VoidCallback? onRetry}) => ErrorStateView(
         message: 'Unable to open document. Try the official source instead.',
         icon: Icons.picture_as_pdf_outlined,

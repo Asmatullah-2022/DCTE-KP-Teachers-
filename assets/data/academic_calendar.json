@@ -1,0 +1,58 @@
+[
+  {
+    "calendarId": "2025-26-summer-s1",
+    "session": "2025-26",
+    "zone": "summer",
+    "semester": "Semester I",
+    "startDate": "2025-09-01",
+    "endDate": "2025-12-31",
+    "label": "Summer Zone — Semester I",
+    "sourceDocumentId": "dcte-semester-notification-2025-26",
+    "sourcePage": 1,
+    "verified": true,
+    "examWeightagePercent": 45,
+    "policyNote": "For the academic calendar 2025-26, Summer Zone Schools will follow Semester-I and Winter Zone Schools will follow Semester-II, with immediate effect. Thereafter, schools will follow semesters as per the table above."
+  },
+  {
+    "calendarId": "2025-26-summer-s2",
+    "session": "2025-26",
+    "zone": "summer",
+    "semester": "Semester II",
+    "startDate": "2026-01-16",
+    "endDate": "2026-05-31",
+    "label": "Summer Zone — Semester II",
+    "sourceDocumentId": "dcte-semester-notification-2025-26",
+    "sourcePage": 1,
+    "verified": true,
+    "examWeightagePercent": 55,
+    "policyNote": "Semester-I weightage in the examination is 45%, which will accordingly be counted towards Semester-II's 55% weightage, making the final result 100%."
+  },
+  {
+    "calendarId": "2025-26-winter-s1",
+    "session": "2025-26",
+    "zone": "winter",
+    "semester": "Semester I",
+    "startDate": "2025-03-01",
+    "endDate": "2025-06-30",
+    "label": "Winter Zone — Semester I",
+    "sourceDocumentId": "dcte-semester-notification-2025-26",
+    "sourcePage": 1,
+    "verified": true,
+    "examWeightagePercent": 45,
+    "policyNote": "For the academic calendar 2025-26, Summer Zone Schools will follow Semester-I and Winter Zone Schools will follow Semester-II, with immediate effect. Thereafter, schools will follow semesters as per the table above."
+  },
+  {
+    "calendarId": "2025-26-winter-s2",
+    "session": "2025-26",
+    "zone": "winter",
+    "semester": "Semester II",
+    "startDate": "2025-08-01",
+    "endDate": "2025-12-15",
+    "label": "Winter Zone — Semester II",
+    "sourceDocumentId": "dcte-semester-notification-2025-26",
+    "sourcePage": 1,
+    "verified": true,
+    "examWeightagePercent": 55,
+    "policyNote": "Semester-I weightage in the examination is 45%, which will accordingly be counted towards Semester-II's 55% weightage, making the final result 100%."
+  }
+]

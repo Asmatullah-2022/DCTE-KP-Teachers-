@@ -65,6 +65,29 @@ class UnitDetailScreen extends ConsumerWidget {
                 Text(unit.description!, style: Theme.of(context).textTheme.bodyLarge),
                 const SizedBox(height: 16),
               ],
+              if (unit.learningOutcomes != null && unit.learningOutcomes!.isNotEmpty) ...[
+                Text('Learning Outcomes', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 6),
+                ...unit.learningOutcomes!.map(
+                  (o) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('•  $o', style: Theme.of(context).textTheme.bodyMedium),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (unit.teachingGuidance != null) ...[
+                Text('Teaching Guidance', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 6),
+                Text(unit.teachingGuidance!, style: Theme.of(context).textTheme.bodyMedium),
+                const SizedBox(height: 12),
+              ],
+              if (unit.assessmentGuidance != null) ...[
+                Text('Assessment Guidance', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 6),
+                Text(unit.assessmentGuidance!, style: Theme.of(context).textTheme.bodyMedium),
+                const SizedBox(height: 12),
+              ],
               Text('Session: ${unit.session}', style: Theme.of(context).textTheme.bodyMedium),
               Text('Semester: ${unit.semester}', style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: 16),

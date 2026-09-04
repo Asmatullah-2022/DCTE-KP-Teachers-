@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/constants/app_constants.dart';
+import '../core/utils/firestore_error_logger.dart';
+import '../core/utils/firestore_fallback.dart';
 import '../models/grade_model.dart';
 import '../models/subject_model.dart';
 import '../models/curriculum_model.dart';
@@ -25,7 +27,7 @@ class CurriculumRepository {
         .orderBy('sortOrder')
         .snapshots()
         .map((s) => s.docs.map(GradeModel.fromDoc).toList());
-    yield* _withLocalFallback(remote, local);
+    yield* withLocalFallback('CurriculumRepository.watchGrades', remote, local);
   }
 
   Stream<List<SubjectModel>> watchSubjectsForGrade(String gradeId) async* {
@@ -40,7 +42,7 @@ class CurriculumRepository {
         .orderBy('sortOrder')
         .snapshots()
         .map((s) => s.docs.map(SubjectModel.fromDoc).toList());
-    yield* _withLocalFallback(remote, local);
+    yield* withLocalFallback('CurriculumRepository.watchSubjectsForGrade', remote, local);
   }
 
   Stream<List<CurriculumModel>> watchUnits({
@@ -60,14 +62,15 @@ class CurriculumRepository {
         .orderBy('unitNumber')
         .snapshots()
         .map((s) => s.docs.map(CurriculumModel.fromDoc).toList());
-    yield* _withLocalFallback(remote, local);
+    yield* withLocalFallback('CurriculumRepository.watchUnits', remote, local);
   }
 
   Future<CurriculumModel?> getUnit(String curriculumId) async {
     try {
       final doc = await _db.collection(AppConstants.collectionCurriculum).doc(curriculumId).get();
       if (doc.exists) return CurriculumModel.fromDoc(doc);
-    } catch (_) {
+    } catch (e, st) {
+      logFirestoreError('CurriculumRepository.getUnit', e, st);
       // fall through to local lookup below
     }
     final local = await LocalCurriculumData.curriculum();
@@ -75,17 +78,5 @@ class CurriculumRepository {
       if (unit.curriculumId == curriculumId) return unit;
     }
     return null;
-  }
-
-  /// Prefers [remote] emissions; substitutes [local] for any emission that
-  /// is empty, and falls back to [local] entirely if [remote] errors.
-  Stream<List<T>> _withLocalFallback<T>(Stream<List<T>> remote, List<T> local) async* {
-    try {
-      await for (final list in remote) {
-        yield list.isEmpty ? local : list;
-      }
-    } catch (_) {
-      yield local;
-    }
   }
 }

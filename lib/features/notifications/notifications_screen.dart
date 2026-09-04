@@ -55,7 +55,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           Expanded(
             child: feedAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, st) => ErrorStateView.sourceUnavailable(),
+              error: (e, st) => ErrorStateView.liveDataUnavailable(
+                onRetry: () => ref.invalidate(notificationsFeedProvider(_filter)),
+              ),
               data: (items) {
                 if (items.isEmpty) {
                   return const ErrorStateView(message: 'No notifications in this category yet.');

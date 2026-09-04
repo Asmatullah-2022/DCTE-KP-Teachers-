@@ -23,6 +23,16 @@ class CurriculumModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  /// Richer lesson metadata (learning outcomes, teaching guidance,
+  /// assessment guidance) — always null unless an admin has actually
+  /// entered it in Firestore for this unit. The app never fabricates these;
+  /// the bundled offline dataset (scripts/seed/curriculum.json) only has
+  /// unit titles extracted from the semester notification, so these are
+  /// absent there. UI only renders each field when non-null.
+  final List<String>? learningOutcomes;
+  final String? teachingGuidance;
+  final String? assessmentGuidance;
+
   const CurriculumModel({
     required this.curriculumId,
     required this.gradeId,
@@ -40,6 +50,9 @@ class CurriculumModel {
     this.needsVerification = false,
     this.createdAt,
     this.updatedAt,
+    this.learningOutcomes,
+    this.teachingGuidance,
+    this.assessmentGuidance,
   });
 
   factory CurriculumModel.fromMap(String id, Map<String, dynamic> map) {
@@ -60,6 +73,9 @@ class CurriculumModel {
       needsVerification: map['needsVerification'] as bool? ?? false,
       createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
+      learningOutcomes: (map['learningOutcomes'] as List?)?.map((e) => e.toString()).toList(),
+      teachingGuidance: map['teachingGuidance'] as String?,
+      assessmentGuidance: map['assessmentGuidance'] as String?,
     );
   }
 
@@ -82,5 +98,8 @@ class CurriculumModel {
         'needsVerification': needsVerification,
         'createdAt': createdAt == null ? FieldValue.serverTimestamp() : Timestamp.fromDate(createdAt!),
         'updatedAt': FieldValue.serverTimestamp(),
+        'learningOutcomes': learningOutcomes,
+        'teachingGuidance': teachingGuidance,
+        'assessmentGuidance': assessmentGuidance,
       };
 }

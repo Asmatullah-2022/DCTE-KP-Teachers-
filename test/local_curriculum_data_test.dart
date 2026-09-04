@@ -1,8 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dcte_kp_teachers/repositories/local_curriculum_data.dart';
+import 'package:dcte_kp_teachers/repositories/local_academic_calendar_data.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('bundled academic calendar asset loads with valid date ranges', () async {
+    final calendar = await LocalAcademicCalendarData.calendar();
+    expect(calendar, isNotEmpty);
+    expect(calendar.every((c) => c.endDate.isAfter(c.startDate)), isTrue);
+  });
 
   test('bundled grades asset loads and covers ECE to Grade 8', () async {
     final grades = await LocalCurriculumData.grades();

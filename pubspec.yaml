@@ -81,3 +81,4 @@ flutter:
     - assets/data/grades.json
     - assets/data/subjects.json
     - assets/data/curriculum.json
+    - assets/data/academic_calendar.json

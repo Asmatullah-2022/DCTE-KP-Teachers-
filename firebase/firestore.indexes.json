@@ -41,6 +41,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "verified", "order": "ASCENDING" },
         { "fieldPath": "documentType", "order": "ASCENDING" },
         { "fieldPath": "publishedDate", "order": "DESCENDING" }
       ]
@@ -50,6 +51,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "verified", "order": "ASCENDING" },
         { "fieldPath": "publishedDate", "order": "DESCENDING" }
       ]
     },

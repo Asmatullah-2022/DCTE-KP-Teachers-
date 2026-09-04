@@ -6,22 +6,32 @@ import 'package:intl/intl.dart';
 import '../../providers/app_providers.dart';
 import '../../widgets/error_state_view.dart';
 
-class DocumentsScreen extends ConsumerWidget {
+class DocumentsScreen extends ConsumerStatefulWidget {
   const DocumentsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DocumentsScreen> createState() => _DocumentsScreenState();
+}
+
+class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
+  int _retryTick = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final repo = ref.watch(documentsRepositoryProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Documents')),
       body: StreamBuilder(
+        key: ValueKey(_retryTick),
         stream: repo.watchPublished(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError) return ErrorStateView.sourceUnavailable();
+          if (snapshot.hasError) {
+            return ErrorStateView.liveDataUnavailable(onRetry: () => setState(() => _retryTick++));
+          }
           final docs = snapshot.data ?? const [];
           if (docs.isEmpty) {
             return const ErrorStateView(message: 'No verified documents published yet.');
