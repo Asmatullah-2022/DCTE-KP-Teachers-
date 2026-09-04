@@ -44,7 +44,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final fcm = ref.watch(fcmServiceProvider);
     final authState = ref.watch(authStateChangesProvider);
-    final isAdmin = ref.watch(isAdminProvider).value ?? false;
+    final isAdmin = ref.watch(isAdminProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('More')),

@@ -12,6 +12,24 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // TEMPORARY: a plain email whitelist as an additional way to satisfy
+    // curriculum-write access, alongside the `admin` custom claim — added
+    // so seeding curriculum data doesn't require a service-account key /
+    // Admin SDK / CLI to grant a custom claim first. Scoped ONLY to the
+    // `curriculum` collection (see isAdminOrWhitelistedForCurriculum()
+    // below), not a blanket replacement for isAdmin() — every other
+    // admin-only collection (documents, notifications, users writes, etc.)
+    // still requires the real custom claim. Remove this function and its
+    // one call site once real admin accounts are set up via README.md §5.
+    function isWhitelistedCurriculumEditor() {
+      return request.auth != null &&
+        request.auth.token.email == 'asmatullahpst107@gmail.com';
+    }
+
+    function isAdminOrWhitelistedForCurriculum() {
+      return isAdmin() || isWhitelistedCurriculumEditor();
+    }
+
     // ---- Public, read-only reference data --------------------------------
     match /grades/{gradeId} {
       allow read: if resource.data.active == true;
@@ -31,7 +49,7 @@ service cloud.firestore {
     // unverified curriculum content is never auto-published to the app.
     match /curriculum/{curriculumId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdminOrWhitelistedForCurriculum();
     }
 
     match /curriculum_pending/{curriculumId} {

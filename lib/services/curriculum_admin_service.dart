@@ -9,20 +9,26 @@ import '../repositories/local_curriculum_data.dart';
 /// the live `curriculum` collection, for admins to use instead of manually
 /// typing every unit into the Firebase Console.
 ///
-/// Requires the signed-in user to actually hold the `admin` custom claim —
-/// firestore.rules only allows writes to `curriculum/{curriculumId}` when
-/// `isAdmin()`, so a non-admin caller gets a clean permission-denied,
-/// exactly like every other admin-only write path in this app (see
-/// README.md §5, "Grant yourself admin").
+/// Requires the signed-in user to satisfy firestore.rules's admin check for
+/// `curriculum/{curriculumId}` writes — currently either the `admin` custom
+/// claim OR the temporary email whitelist (see AppConstants.adminEmails and
+/// firebase/firestore.rules's isAdminOrWhitelistedForCurriculum()); a
+/// caller matching neither gets a clean permission-denied.
 class CurriculumAdminService {
   final FirebaseFirestore _db;
   CurriculumAdminService(this._db);
 
   /// Writes every bundled unit for [gradeId]/[subjectId] that doesn't
-  /// already exist in the live `curriculum` collection. Existing documents
-  /// are left untouched (checked individually before writing, so this is
-  /// safe to run more than once). Returns how many were newly written vs.
-  /// already present.
+  /// already exist in the live `curriculum` collection, using deterministic
+  /// doc IDs `unit_01`, `unit_02`, ... (per [unitDocId]) so re-running this
+  /// never creates duplicates. Existing documents are left untouched
+  /// (checked individually before writing).
+  ///
+  /// NOTE: `unit_01`..`unit_11` are unique only *within one grade+subject*.
+  /// If this seeding pattern is later reused for another grade/subject in
+  /// the same flat `curriculum` collection, that caller must use a
+  /// different ID scheme (e.g. prefix with gradeId/subjectId) — otherwise
+  /// its "unit_01" would silently overwrite this one's.
   Future<CurriculumSeedResult> seedBundledUnits({
     required String gradeId,
     required String subjectId,
@@ -40,7 +46,7 @@ class CurriculumAdminService {
     var alreadyPresent = 0;
 
     for (final unit in units) {
-      final docRef = collection.doc(unit.curriculumId);
+      final docRef = collection.doc(unitDocId(unit.unitNumber));
       final existing = await docRef.get();
       if (existing.exists) {
         alreadyPresent++;
@@ -52,6 +58,8 @@ class CurriculumAdminService {
 
     return CurriculumSeedResult(imported: imported, alreadyPresent: alreadyPresent, total: units.length);
   }
+
+  static String unitDocId(int unitNumber) => 'unit_${unitNumber.toString().padLeft(2, '0')}';
 }
 
 class CurriculumSeedResult {

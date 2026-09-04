@@ -1,9 +1,21 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dcte_kp_teachers/core/constants/app_constants.dart';
 import 'package:dcte_kp_teachers/repositories/local_curriculum_data.dart';
 import 'package:dcte_kp_teachers/repositories/local_academic_calendar_data.dart';
+import 'package:dcte_kp_teachers/services/curriculum_admin_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('admin email whitelist contains the configured curriculum editor', () {
+    expect(AppConstants.adminEmails, contains('asmatullahpst107@gmail.com'));
+  });
+
+  test('seed doc IDs are unit_01 through unit_11, zero-padded', () {
+    expect(CurriculumAdminService.unitDocId(1), 'unit_01');
+    expect(CurriculumAdminService.unitDocId(9), 'unit_09');
+    expect(CurriculumAdminService.unitDocId(11), 'unit_11');
+  });
 
   test('bundled academic calendar asset loads with valid date ranges', () async {
     final calendar = await LocalAcademicCalendarData.calendar();

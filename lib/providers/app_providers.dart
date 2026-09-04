@@ -33,17 +33,18 @@ final authServiceProvider = Provider<AuthService>((ref) => AuthService(ref.watch
 final authStateChangesProvider =
     StreamProvider<User?>((ref) => ref.watch(authServiceProvider).authStateChanges());
 
-/// True only if the signed-in user actually holds the `admin` custom claim
-/// (see README.md §5) — the same claim every Firestore rule and admin
-/// Cloud Function checks. Drives visibility of admin-only UI (e.g. the
-/// curriculum seeding button in Settings); never trust this alone for
-/// security, since the real enforcement is server-side (firestore.rules /
-/// requireAdmin) — this only controls what's shown, not what's allowed.
-final isAdminProvider = FutureProvider<bool>((ref) async {
+/// True only if the signed-in user's email is on the TEMPORARY admin
+/// whitelist (AppConstants.adminEmails) — drives visibility of admin-only
+/// UI (e.g. the curriculum seeding button in Settings). This does NOT use
+/// Firebase custom claims (no service-account/Admin SDK/CLI setup needed).
+/// It is still not the real security boundary: firestore.rules's
+/// isAdminOrWhitelistedForCurriculum() independently checks request.auth.token.email
+/// server-side, which a client can't spoof — this provider only controls
+/// what's shown, matching the same pattern the custom-claim check used.
+final isAdminProvider = Provider<bool>((ref) {
   final user = ref.watch(authStateChangesProvider).value;
-  if (user == null) return false;
-  final tokenResult = await user.getIdTokenResult();
-  return tokenResult.claims?['admin'] == true;
+  final email = user?.email?.toLowerCase();
+  return email != null && AppConstants.adminEmails.contains(email);
 });
 
 final curriculumAdminServiceProvider =

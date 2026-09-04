@@ -34,6 +34,21 @@ class AppConstants {
     'dcte_academic',
   ];
 
+  // TEMPORARY admin mechanism: a plain email whitelist instead of Firebase
+  // custom claims, so admin status doesn't require a service-account key /
+  // Admin SDK / CLI — just signing in with one of these addresses. This
+  // only controls which UI is shown (see isAdminProvider in
+  // app_providers.dart); the real enforcement is server-side in
+  // firebase/firestore.rules's isAdminOrWhitelisted(), which checks
+  // request.auth.token.email against the same list — a client can't spoof
+  // that email claim, so this is no less safe than the custom-claim
+  // approach, just simpler to set up. To remove an address from having
+  // admin UI/write access, delete it here AND from firestore.rules, then
+  // redeploy the rules.
+  static const Set<String> adminEmails = {
+    'asmatullahpst107@gmail.com',
+  };
+
   // Firestore collection names
   static const String collectionGrades = 'grades';
   static const String collectionSubjects = 'subjects';
