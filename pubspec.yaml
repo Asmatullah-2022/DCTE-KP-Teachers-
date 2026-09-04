@@ -71,7 +71,13 @@ flutter:
   uses-material-design: true
   generate: true
 
-  # No bundled asset files ship in this MVP — the in-app logo is drawn
-  # programmatically (see lib/features/home/home_screen.dart). Add real
-  # image assets under assets/images/ and declare them here if you swap
-  # in a designed logo/icon set.
+  # Bundled offline fallback data for the Curriculum feature — the same
+  # ECE-to-Grade-VIII records extracted from the official DCTE semester
+  # notification (see scripts/seed/), shipped in the app itself so the
+  # Curriculum screens can show verified data even when Firestore is
+  # unreachable (rules not yet deployed, no connectivity, etc.). See
+  # lib/repositories/local_curriculum_data.dart.
+  assets:
+    - assets/data/grades.json
+    - assets/data/subjects.json
+    - assets/data/curriculum.json
