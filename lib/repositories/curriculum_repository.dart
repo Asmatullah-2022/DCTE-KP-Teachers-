@@ -61,6 +61,13 @@ class CurriculumRepository {
     required String subjectId,
     required String semester,
   }) async* {
+    final subscriptionId = DateTime.now().microsecondsSinceEpoch;
+    developer.log(
+      'CURRICULUM DEBUG: watchUnits() NEW SUBSCRIPTION #$subscriptionId '
+      'gradeId="$gradeId" subjectId="$subjectId" semester="$semester" at ${DateTime.now()}',
+      name: 'firestore',
+    );
+
     await _debugCompareFilteredVsUnfiltered(gradeId: gradeId, subjectId: subjectId, semester: semester);
 
     final local = (await LocalCurriculumData.curriculum())
@@ -75,8 +82,17 @@ class CurriculumRepository {
         .where('needsVerification', isEqualTo: false)
         .orderBy('unitNumber')
         .snapshots()
-        .map((s) => s.docs.map(CurriculumModel.fromDoc).toList());
-    yield* withLocalFallback('CurriculumRepository.watchUnits', remote, local, substituteOnEmpty: false);
+        .map((s) {
+      developer.log(
+        'CURRICULUM DEBUG: subscription #$subscriptionId RAW SNAPSHOT @ ${DateTime.now()} — '
+        '${s.docs.length} doc(s), isFromCache=${s.metadata.isFromCache}, '
+        'hasPendingWrites=${s.metadata.hasPendingWrites}, '
+        'titles=${s.docs.map((d) => d.data()['unitTitle']).toList()}',
+        name: 'firestore',
+      );
+      return s.docs.map(CurriculumModel.fromDoc).toList();
+    });
+    yield* withLocalFallback('CurriculumRepository.watchUnits#$subscriptionId', remote, local, substituteOnEmpty: false);
   }
 
   /// TEMPORARY diagnostic — not part of the app's normal query path. Runs

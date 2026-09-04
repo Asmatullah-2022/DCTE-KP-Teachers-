@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'firestore_error_logger.dart';
 
 /// Prefers [remote] emissions; falls back to bundled [local] data if
@@ -22,10 +24,21 @@ Stream<List<T>> withLocalFallback<T>(
 }) async* {
   try {
     await for (final list in remote) {
-      yield (substituteOnEmpty && list.isEmpty) ? local : list;
+      final useLocal = substituteOnEmpty && list.isEmpty;
+      developer.log(
+        'CURRICULUM DEBUG: withLocalFallback[$context] @ ${DateTime.now()} — '
+        'remote emitted ${list.length} item(s); YIELDING ${useLocal ? "LOCAL fallback (${local.length} item(s))" : "REMOTE result"}.',
+        name: 'firestore',
+      );
+      yield useLocal ? local : list;
     }
   } catch (e, st) {
     logFirestoreError(context, e, st);
+    developer.log(
+      'CURRICULUM DEBUG: withLocalFallback[$context] @ ${DateTime.now()} — '
+      'remote ERRORED ($e); YIELDING LOCAL fallback (${local.length} item(s)).',
+      name: 'firestore',
+    );
     yield local;
   }
 }
