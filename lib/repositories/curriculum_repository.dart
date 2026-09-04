@@ -238,6 +238,69 @@ class CurriculumRepository {
     }
     return null;
   }
+
+  /// TEMPORARY — one-shot reads for the raw-collection debug panel (see
+  /// SemesterUnitsScreen). Runs the EXACT same filtered query as
+  /// [watchUnits] (for a stable count to compare against) and a
+  /// completely UNFILTERED read of the whole `curriculum` collection —
+  /// no gradeId/subjectId/semester/needsVerification filters at all — so
+  /// every document's raw field values and Dart runtime types are visible
+  /// directly, instead of only what CurriculumModel.fromMap() happens to
+  /// coerce them into (which would hide exactly the kind of type mismatch
+  /// this is trying to catch). Remove once diagnosed.
+  Future<CurriculumRawDebugResult> debugFetchFilteredVsUnfiltered({
+    required String gradeId,
+    required String subjectId,
+    required String semester,
+  }) async {
+    final filteredSnap = await _db
+        .collection(AppConstants.collectionCurriculum)
+        .where('gradeId', isEqualTo: gradeId)
+        .where('subjectId', isEqualTo: subjectId)
+        .where('semester', isEqualTo: semester)
+        .where('needsVerification', isEqualTo: false)
+        .get();
+
+    final unfilteredSnap = await _db.collection(AppConstants.collectionCurriculum).get();
+
+    final docs = unfilteredSnap.docs.map((d) {
+      final data = d.data();
+      return CurriculumRawDoc(
+        id: d.id,
+        data: data,
+        gradeId: data['gradeId'],
+        gradeIdType: data['gradeId']?.runtimeType.toString(),
+        subjectId: data['subjectId'],
+        subjectIdType: data['subjectId']?.runtimeType.toString(),
+        semester: data['semester'],
+        semesterType: data['semester']?.runtimeType.toString(),
+        needsVerification: data['needsVerification'],
+        needsVerificationType: data['needsVerification']?.runtimeType.toString(),
+        unitNumber: data['unitNumber'],
+        unitNumberType: data['unitNumber']?.runtimeType.toString(),
+        statusOrPublishedField: _findStatusOrPublishedField(data),
+      );
+    }).toList();
+
+    return CurriculumRawDebugResult(
+      filteredCount: filteredSnap.docs.length,
+      unfilteredCount: unfilteredSnap.docs.length,
+      docs: docs,
+    );
+  }
+
+  /// Looks for any field that might be the "is this visible" flag under a
+  /// name other than needsVerification — e.g. if a document was written
+  /// with `status`/`isPublished`/`published` instead of (or in addition
+  /// to) `needsVerification`, since those are never read by the real
+  /// query and would otherwise be an invisible reason a doc looks right
+  /// but never matches.
+  String? _findStatusOrPublishedField(Map<String, dynamic> data) {
+    for (final key in ['status', 'isPublished', 'published']) {
+      if (data.containsKey(key)) return '$key = ${data[key]} (${data[key]?.runtimeType})';
+    }
+    return null;
+  }
 }
 
 /// TEMPORARY — see [CurriculumRepository.watchUnitsWithDebugInfo].
@@ -259,5 +322,51 @@ class CurriculumDebugSnapshot {
     required this.hasPendingWrites,
     required this.timestamp,
     required this.emissionNumber,
+  });
+}
+
+/// TEMPORARY — see [CurriculumRepository.debugFetchFilteredVsUnfiltered].
+class CurriculumRawDoc {
+  final String id;
+  final Map<String, dynamic> data;
+  final dynamic gradeId;
+  final String? gradeIdType;
+  final dynamic subjectId;
+  final String? subjectIdType;
+  final dynamic semester;
+  final String? semesterType;
+  final dynamic needsVerification;
+  final String? needsVerificationType;
+  final dynamic unitNumber;
+  final String? unitNumberType;
+  final String? statusOrPublishedField;
+
+  const CurriculumRawDoc({
+    required this.id,
+    required this.data,
+    required this.gradeId,
+    required this.gradeIdType,
+    required this.subjectId,
+    required this.subjectIdType,
+    required this.semester,
+    required this.semesterType,
+    required this.needsVerification,
+    required this.needsVerificationType,
+    required this.unitNumber,
+    required this.unitNumberType,
+    required this.statusOrPublishedField,
+  });
+}
+
+/// TEMPORARY — see [CurriculumRepository.debugFetchFilteredVsUnfiltered].
+class CurriculumRawDebugResult {
+  final int filteredCount;
+  final int unfilteredCount;
+  final List<CurriculumRawDoc> docs;
+
+  const CurriculumRawDebugResult({
+    required this.filteredCount,
+    required this.unfilteredCount,
+    required this.docs,
   });
 }

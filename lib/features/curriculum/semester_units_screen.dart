@@ -29,6 +29,7 @@ class _SemesterUnitsScreenState extends ConsumerState<SemesterUnitsScreen> {
   // therefore a brand-new Firestore listener) on every rebuild.
   late final Stream<CurriculumDebugSnapshot> _debugStream;
   late final String _semesterLabel;
+  late final Future<CurriculumRawDebugResult> _rawDebugFuture;
 
   // TEMPORARY on-screen diagnostics (no adb/Android Studio needed) — every
   // field requested: current vs previous count, timestamp, cache/pending
@@ -49,6 +50,11 @@ class _SemesterUnitsScreenState extends ConsumerState<SemesterUnitsScreen> {
     _semesterLabel = Uri.decodeComponent(widget.semester);
     final repo = ref.read(curriculumRepositoryProvider);
     _debugStream = repo.watchUnitsWithDebugInfo(
+      gradeId: widget.gradeId,
+      subjectId: widget.subjectId,
+      semester: _semesterLabel,
+    );
+    _rawDebugFuture = repo.debugFetchFilteredVsUnfiltered(
       gradeId: widget.gradeId,
       subjectId: widget.subjectId,
       semester: _semesterLabel,
@@ -101,6 +107,18 @@ class _SemesterUnitsScreenState extends ConsumerState<SemesterUnitsScreen> {
             previousCount: _displayPreviousCount,
             justDroppedToEmpty: _justDroppedToEmpty,
             history: _history,
+          ),
+          FutureBuilder<CurriculumRawDebugResult>(
+            future: _rawDebugFuture,
+            builder: (context, snap) {
+              if (!snap.hasData) {
+                return const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Text('Loading raw collection dump…', style: TextStyle(fontSize: 11)),
+                );
+              }
+              return _RawDumpPanel(result: snap.data!);
+            },
           ),
           Expanded(
             child: StreamBuilder<CurriculumDebugSnapshot>(
@@ -198,6 +216,77 @@ class _DebugPanel extends StatelessWidget {
             for (final line in history) Text(line, style: const TextStyle(fontSize: 10)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// TEMPORARY — one-shot filtered-vs-unfiltered comparison and raw document
+/// dump (see CurriculumRepository.debugFetchFilteredVsUnfiltered). Remove
+/// alongside the rest of this file's debug panels once diagnosed.
+class _RawDumpPanel extends StatelessWidget {
+  final CurriculumRawDebugResult result;
+  const _RawDumpPanel({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    const maxDocsShown = 20;
+    final shown = result.docs.take(maxDocsShown).toList();
+
+    return Container(
+      width: double.infinity,
+      color: Colors.blue.shade50,
+      padding: const EdgeInsets.all(8),
+      constraints: const BoxConstraints(maxHeight: 320),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('RAW COLLECTION DUMP (temporary)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            const SizedBox(height: 4),
+            Text('FILTERED QUERY RESULT:', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            Text('count = ${result.filteredCount}', style: const TextStyle(fontSize: 11)),
+            const SizedBox(height: 4),
+            Text('UNFILTERED COLLECTION RESULT:', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            Text('count = ${result.unfilteredCount}', style: const TextStyle(fontSize: 11)),
+            const SizedBox(height: 6),
+            Text(
+              'Showing ${shown.length} of ${result.docs.length} document(s):',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            ),
+            for (final doc in shown) _RawDocView(doc: doc),
+            if (result.docs.isEmpty)
+              const Text('(the curriculum collection is completely empty)',
+                  style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RawDocView extends StatelessWidget {
+  final CurriculumRawDoc doc;
+  const _RawDocView({required this.doc});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('id: ${doc.id}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          Text('gradeId: ${doc.gradeId} (${doc.gradeIdType})', style: const TextStyle(fontSize: 10)),
+          Text('subjectId: ${doc.subjectId} (${doc.subjectIdType})', style: const TextStyle(fontSize: 10)),
+          Text('semester: ${doc.semester} (${doc.semesterType})', style: const TextStyle(fontSize: 10)),
+          Text('needsVerification: ${doc.needsVerification} (${doc.needsVerificationType})', style: const TextStyle(fontSize: 10)),
+          Text('unitNumber: ${doc.unitNumber} (${doc.unitNumberType})', style: const TextStyle(fontSize: 10)),
+          Text('status/published field: ${doc.statusOrPublishedField ?? "(none found)"}', style: const TextStyle(fontSize: 10)),
+          Text('all fields: ${doc.data}', style: const TextStyle(fontSize: 9, color: Colors.black54)),
+        ],
       ),
     );
   }
