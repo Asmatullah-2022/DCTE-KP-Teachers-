@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/firestore_error_logger.dart';
@@ -59,6 +61,8 @@ class CurriculumRepository {
     required String subjectId,
     required String semester,
   }) async* {
+    await _debugCompareFilteredVsUnfiltered(gradeId: gradeId, subjectId: subjectId, semester: semester);
+
     final local = (await LocalCurriculumData.curriculum())
         .where((c) => c.gradeId == gradeId && c.subjectId == subjectId && c.semester == semester)
         .toList()
@@ -73,6 +77,55 @@ class CurriculumRepository {
         .snapshots()
         .map((s) => s.docs.map(CurriculumModel.fromDoc).toList());
     yield* withLocalFallback('CurriculumRepository.watchUnits', remote, local, substituteOnEmpty: false);
+  }
+
+  /// TEMPORARY diagnostic — not part of the app's normal query path. Runs
+  /// two one-shot reads: (1) gradeId+subjectId+semester only, and (2) the
+  /// same plus needsVerification==false, then logs every raw field of
+  /// every doc found by (1) so a type/value mismatch (e.g. needsVerification
+  /// stored as the string "false" instead of the boolean false, or a
+  /// semester string that LOOKS like "Semester I" but isn't byte-identical)
+  /// is visible directly instead of guessed at. Read via `adb logcat -s
+  /// flutter` or Android Studio's Logcat, filter for "CURRICULUM DEBUG".
+  /// Remove this method (and its one call site above) once diagnosed.
+  Future<void> _debugCompareFilteredVsUnfiltered({
+    required String gradeId,
+    required String subjectId,
+    required String semester,
+  }) async {
+    try {
+      final unfiltered = await _db
+          .collection(AppConstants.collectionCurriculum)
+          .where('gradeId', isEqualTo: gradeId)
+          .where('subjectId', isEqualTo: subjectId)
+          .where('semester', isEqualTo: semester)
+          .get();
+      final filtered = await _db
+          .collection(AppConstants.collectionCurriculum)
+          .where('gradeId', isEqualTo: gradeId)
+          .where('subjectId', isEqualTo: subjectId)
+          .where('semester', isEqualTo: semester)
+          .where('needsVerification', isEqualTo: false)
+          .get();
+
+      developer.log(
+        'CURRICULUM DEBUG: gradeId="$gradeId" subjectId="$subjectId" semester="$semester" '
+        '-> ${unfiltered.docs.length} doc(s) WITHOUT the needsVerification filter, '
+        '${filtered.docs.length} doc(s) WITH it.',
+        name: 'firestore',
+      );
+      for (final doc in unfiltered.docs) {
+        final data = doc.data();
+        developer.log(
+          'CURRICULUM DEBUG: doc id="${doc.id}" fields=$data '
+          '(needsVerification runtimeType=${data['needsVerification']?.runtimeType}, '
+          'unitNumber runtimeType=${data['unitNumber']?.runtimeType})',
+          name: 'firestore',
+        );
+      }
+    } catch (e, st) {
+      developer.log('CURRICULUM DEBUG: comparison query itself failed: $e', name: 'firestore', error: e, stackTrace: st);
+    }
   }
 
   /// All publicly visible units (needsVerification == false) for a
