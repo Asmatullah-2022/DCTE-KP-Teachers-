@@ -95,6 +95,62 @@ class CurriculumRepository {
     yield* withLocalFallback('CurriculumRepository.watchUnits#$subscriptionId', remote, local, substituteOnEmpty: false);
   }
 
+  /// TEMPORARY — richer version of [watchUnits] for the on-screen debug
+  /// panel (see SemesterUnitsScreen): same query, same honest-empty
+  /// behavior (only falls back to local on a real error, never on a
+  /// legitimate empty result), but yields a [CurriculumDebugSnapshot]
+  /// carrying exactly what's needed to show on-device without adb: which
+  /// source produced this emission (Firestore vs. the bundled fallback),
+  /// cache/pending-write flags, an emission counter, and a timestamp. The
+  /// screen uses this as its ONLY subscription (not in addition to
+  /// [watchUnits]) so there's exactly one Firestore listener, not two.
+  /// Remove this method (and CurriculumDebugSnapshot) once diagnosed.
+  Stream<CurriculumDebugSnapshot> watchUnitsWithDebugInfo({
+    required String gradeId,
+    required String subjectId,
+    required String semester,
+  }) async* {
+    final local = (await LocalCurriculumData.curriculum())
+        .where((c) => c.gradeId == gradeId && c.subjectId == subjectId && c.semester == semester)
+        .toList()
+      ..sort((a, b) => a.unitNumber.compareTo(b.unitNumber));
+
+    final remote = _db
+        .collection(AppConstants.collectionCurriculum)
+        .where('gradeId', isEqualTo: gradeId)
+        .where('subjectId', isEqualTo: subjectId)
+        .where('semester', isEqualTo: semester)
+        .where('needsVerification', isEqualTo: false)
+        .orderBy('unitNumber')
+        .snapshots();
+
+    var emissionNumber = 0;
+    try {
+      await for (final snap in remote) {
+        emissionNumber++;
+        yield CurriculumDebugSnapshot(
+          units: snap.docs.map(CurriculumModel.fromDoc).toList(),
+          source: CurriculumDataSource.firestore,
+          isFromCache: snap.metadata.isFromCache,
+          hasPendingWrites: snap.metadata.hasPendingWrites,
+          timestamp: DateTime.now(),
+          emissionNumber: emissionNumber,
+        );
+      }
+    } catch (e, st) {
+      logFirestoreError('CurriculumRepository.watchUnitsWithDebugInfo', e, st);
+      emissionNumber++;
+      yield CurriculumDebugSnapshot(
+        units: local,
+        source: CurriculumDataSource.localFallback,
+        isFromCache: false,
+        hasPendingWrites: false,
+        timestamp: DateTime.now(),
+        emissionNumber: emissionNumber,
+      );
+    }
+  }
+
   /// TEMPORARY diagnostic — not part of the app's normal query path. Runs
   /// two one-shot reads: (1) gradeId+subjectId+semester only, and (2) the
   /// same plus needsVerification==false, then logs every raw field of
@@ -182,4 +238,26 @@ class CurriculumRepository {
     }
     return null;
   }
+}
+
+/// TEMPORARY — see [CurriculumRepository.watchUnitsWithDebugInfo].
+enum CurriculumDataSource { firestore, localFallback }
+
+/// TEMPORARY — see [CurriculumRepository.watchUnitsWithDebugInfo].
+class CurriculumDebugSnapshot {
+  final List<CurriculumModel> units;
+  final CurriculumDataSource source;
+  final bool isFromCache;
+  final bool hasPendingWrites;
+  final DateTime timestamp;
+  final int emissionNumber;
+
+  const CurriculumDebugSnapshot({
+    required this.units,
+    required this.source,
+    required this.isFromCache,
+    required this.hasPendingWrites,
+    required this.timestamp,
+    required this.emissionNumber,
+  });
 }

@@ -1,11 +1,9 @@
-import 'dart:developer' as developer;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../models/curriculum_model.dart';
 import '../../providers/app_providers.dart';
+import '../../repositories/curriculum_repository.dart';
 import '../../widgets/error_state_view.dart';
 
 class SemesterUnitsScreen extends ConsumerStatefulWidget {
@@ -25,95 +23,102 @@ class SemesterUnitsScreen extends ConsumerStatefulWidget {
 }
 
 class _SemesterUnitsScreenState extends ConsumerState<SemesterUnitsScreen> {
-  // Created ONCE in initState, not on every build — the previous version
-  // called repo.watchUnits(...) directly inside build(), which handed
-  // StreamBuilder a brand-new Stream object (and therefore a brand-new
-  // Firestore listener) on every rebuild, however that rebuild was
-  // triggered. Holding a single stable stream instance for the lifetime of
-  // this screen eliminates that as a source of spurious re-subscriptions.
-  late final Stream<List<CurriculumModel>> _unitsStream;
+  // Created ONCE in initState, not on every build — see the commit that
+  // fixed the previous version calling repo.watchUnits(...) directly
+  // inside build(), which handed StreamBuilder a brand-new Stream (and
+  // therefore a brand-new Firestore listener) on every rebuild.
+  late final Stream<CurriculumDebugSnapshot> _debugStream;
   late final String _semesterLabel;
 
-  // TEMPORARY in-app diagnostics (no adb needed) — every emission this
-  // screen's StreamBuilder actually receives, with a timestamp and count,
-  // so a later emission silently replacing an earlier successful one is
-  // visible directly on-device. Remove this whole block once diagnosed.
-  final List<String> _debugLog = [];
+  // TEMPORARY on-screen diagnostics (no adb/Android Studio needed) — every
+  // field requested: current vs previous count, timestamp, cache/pending
+  // flags, data source, emission number, build() count, and whether a
+  // 5-to-0-style drop just happened. Remove this whole file's debug panel
+  // (and CurriculumRepository.watchUnitsWithDebugInfo) once diagnosed.
   int _buildCount = 0;
-  String? _lastLoggedSignature;
-
-  /// [signature] identifies THIS emission's content (e.g. doc count + doc
-  /// ids) — StreamBuilder re-invokes its builder on any rebuild of this
-  /// widget (not just new stream events), including the rebuild THIS
-  /// method's own setState triggers, so without deduplication this would
-  /// feed back into itself forever.
-  void _debugAppend(String signature, String line) {
-    if (signature == _lastLoggedSignature) return;
-    _lastLoggedSignature = signature;
-    final entry = '${TimeOfDay.now().format(context)} — $line';
-    developer.log('CURRICULUM DEBUG (UI): $entry', name: 'firestore');
-    if (!mounted) return;
-    setState(() {
-      _debugLog.insert(0, entry);
-      if (_debugLog.length > 12) _debugLog.removeLast();
-    });
-  }
+  int? _previousCount; // tracker: the count as of the last-processed emission
+  int? _displayPreviousCount; // frozen "previous" value for the panel to show
+  CurriculumDebugSnapshot? _lastSnapshot;
+  bool _justDroppedToEmpty = false;
+  final List<String> _history = [];
+  int? _lastRecordedEmissionNumber;
 
   @override
   void initState() {
     super.initState();
     _semesterLabel = Uri.decodeComponent(widget.semester);
     final repo = ref.read(curriculumRepositoryProvider);
-    _unitsStream = repo.watchUnits(gradeId: widget.gradeId, subjectId: widget.subjectId, semester: _semesterLabel);
-    developer.log(
-      'CURRICULUM DEBUG (UI): SemesterUnitsScreen.initState — ONE stream created for '
-      'gradeId="${widget.gradeId}" subjectId="${widget.subjectId}" semester="$_semesterLabel"',
-      name: 'firestore',
+    _debugStream = repo.watchUnitsWithDebugInfo(
+      gradeId: widget.gradeId,
+      subjectId: widget.subjectId,
+      semester: _semesterLabel,
     );
   }
+
+  void _recordEmission(CurriculumDebugSnapshot snap) {
+    // StreamBuilder re-invokes its builder on ANY rebuild of this widget
+    // (not just new stream events), including the rebuild THIS method's
+    // own setState triggers — dedupe by emission number (only incremented
+    // on genuinely new stream events) or this feeds back into itself.
+    if (snap.emissionNumber == _lastRecordedEmissionNumber) return;
+    _lastRecordedEmissionNumber = snap.emissionNumber;
+
+    final currentCount = snap.units.length;
+    final previousCount = _previousCount;
+    final droppedToEmpty = previousCount != null && previousCount > 0 && currentCount == 0;
+
+    final line = '#${snap.emissionNumber} @ ${_formatTime(snap.timestamp)} — '
+        '${previousCount ?? "-"} → $currentCount unit(s) | '
+        'source=${snap.source == CurriculumDataSource.firestore ? "Firestore" : "local fallback"} | '
+        'isFromCache=${snap.isFromCache} | hasPendingWrites=${snap.hasPendingWrites}'
+        '${droppedToEmpty ? "  ⚠ DROPPED TO EMPTY" : ""}';
+
+    if (!mounted) return;
+    setState(() {
+      _lastSnapshot = snap;
+      _displayPreviousCount = previousCount;
+      _previousCount = currentCount;
+      _justDroppedToEmpty = droppedToEmpty;
+      _history.insert(0, line);
+      if (_history.length > 15) _history.removeLast();
+    });
+  }
+
+  String _formatTime(DateTime t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}.${t.millisecond.toString().padLeft(3, '0')}';
 
   @override
   Widget build(BuildContext context) {
     _buildCount++;
-    developer.log('CURRICULUM DEBUG (UI): SemesterUnitsScreen.build() call #$_buildCount', name: 'firestore');
 
     return Scaffold(
       appBar: AppBar(title: Text(_semesterLabel)),
       body: Column(
         children: [
-          Container(
-            width: double.infinity,
-            color: Colors.amber.shade50,
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('DEBUG — build() calls: $_buildCount', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                ..._debugLog.map((line) => Text(line, style: const TextStyle(fontSize: 11))),
-              ],
-            ),
+          _DebugPanel(
+            buildCount: _buildCount,
+            snapshot: _lastSnapshot,
+            previousCount: _displayPreviousCount,
+            justDroppedToEmpty: _justDroppedToEmpty,
+            history: _history,
           ),
           Expanded(
-            child: StreamBuilder<List<CurriculumModel>>(
-              stream: _unitsStream,
+            child: StreamBuilder<CurriculumDebugSnapshot>(
+              stream: _debugStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  WidgetsBinding.instance.addPostFrameCallback(
-                    (_) => _debugAppend('error:${snapshot.error}', 'STREAM ERROR: ${snapshot.error}'),
-                  );
                   return ErrorStateView.sourceUnavailable();
                 }
-                final units = snapshot.data ?? const [];
-                final signature = 'data:${units.map((u) => u.curriculumId).join(",")}';
-                WidgetsBinding.instance.addPostFrameCallback(
-                  (_) => _debugAppend(
-                    signature,
-                    'StreamBuilder emission: ${units.length} unit(s) — ${units.map((u) => u.unitTitle).join(", ")}',
-                  ),
-                );
+                final debugSnap = snapshot.data;
+                if (debugSnap == null) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                WidgetsBinding.instance.addPostFrameCallback((_) => _recordEmission(debugSnap));
+
+                final units = debugSnap.units;
                 if (units.isEmpty) {
                   return const ErrorStateView(message: 'No units published for this semester yet.');
                 }
@@ -140,6 +145,59 @@ class _SemesterUnitsScreenState extends ConsumerState<SemesterUnitsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DebugPanel extends StatelessWidget {
+  final int buildCount;
+  final CurriculumDebugSnapshot? snapshot;
+  final int? previousCount;
+  final bool justDroppedToEmpty;
+  final List<String> history;
+
+  const _DebugPanel({
+    required this.buildCount,
+    required this.snapshot,
+    required this.previousCount,
+    required this.justDroppedToEmpty,
+    required this.history,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final snap = snapshot;
+    return Container(
+      width: double.infinity,
+      color: justDroppedToEmpty ? Colors.red.shade100 : Colors.amber.shade50,
+      padding: const EdgeInsets.all(8),
+      constraints: const BoxConstraints(maxHeight: 260),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('DEBUG PANEL (temporary)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            Text('build() calls: $buildCount', style: const TextStyle(fontSize: 11)),
+            if (snap != null) ...[
+              Text('Emission #: ${snap.emissionNumber}', style: const TextStyle(fontSize: 11)),
+              Text('Current unit count: ${snap.units.length}', style: const TextStyle(fontSize: 11)),
+              Text('Previous unit count: ${previousCount ?? "-"}', style: const TextStyle(fontSize: 11)),
+              Text('Timestamp: ${snap.timestamp}', style: const TextStyle(fontSize: 11)),
+              Text('Source: ${snap.source == CurriculumDataSource.firestore ? "Firestore" : "local fallback"}',
+                  style: const TextStyle(fontSize: 11)),
+              Text('isFromCache: ${snap.isFromCache}', style: const TextStyle(fontSize: 11)),
+              Text('hasPendingWrites: ${snap.hasPendingWrites}', style: const TextStyle(fontSize: 11)),
+              if (justDroppedToEmpty)
+                const Text('⚠ LIST JUST DROPPED FROM >0 TO 0',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red)),
+            ] else
+              const Text('Waiting for first emission…', style: TextStyle(fontSize: 11)),
+            const SizedBox(height: 6),
+            const Text('History (newest first):', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            for (final line in history) Text(line, style: const TextStyle(fontSize: 10)),
+          ],
+        ),
       ),
     );
   }
