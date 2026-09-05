@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,50 +30,47 @@ class _SemesterUnitsScreenState extends ConsumerState<SemesterUnitsScreen> {
   late CurriculumRepository _repo;
 
   // Created once (initState), recreated only on an explicit Retry — never
-  // inline in build() — so this screen keeps one stable Firestore listener
-  // instead of resubscribing on every unrelated widget rebuild.
+  // inline in build() — so this screen keeps exactly ONE Firestore listener
+  // alive at a time. StreamBuilder cancels the previous subscription itself
+  // when the `stream` instance it's given changes identity (its own
+  // documented didUpdateWidget behavior), so Retry never leaves two
+  // listeners running.
   late Stream<List<CurriculumModel>> _unitsStream;
 
-  // A brand-new Firestore listener's FIRST emission can legitimately be an
-  // empty local-cache snapshot, with the server's real (non-empty) answer
-  // arriving a moment later on the same listener. Rather than showing the
-  // user an actionable "empty" state for that transient first result, wait
-  // a short grace period for a possible follow-up emission before treating
-  // it as final.
-  static const _emptyResultGracePeriod = Duration(seconds: 3);
-  Timer? _emptyGraceTimer;
-  bool _emptyConfirmed = false;
+  int? _lastLoggedCount;
 
   @override
   void initState() {
     super.initState();
     _semesterLabel = Uri.decodeComponent(widget.semester);
     _repo = ref.read(curriculumRepositoryProvider);
-    _resubscribe();
-  }
-
-  void _resubscribe() {
-    _emptyGraceTimer?.cancel();
-    _emptyConfirmed = false;
     _unitsStream = _repo.watchUnits(gradeId: widget.gradeId, subjectId: widget.subjectId, semester: _semesterLabel);
   }
 
   void _retry() {
-    setState(_resubscribe);
-  }
-
-  void _onEmptyResult() {
-    if (_emptyConfirmed || _emptyGraceTimer != null) return;
-    _emptyGraceTimer = Timer(_emptyResultGracePeriod, () {
-      if (!mounted) return;
-      setState(() => _emptyConfirmed = true);
+    setState(() {
+      _lastLoggedCount = null;
+      _unitsStream = _repo.watchUnits(gradeId: widget.gradeId, subjectId: widget.subjectId, semester: _semesterLabel);
     });
   }
 
-  @override
-  void dispose() {
-    _emptyGraceTimer?.cancel();
-    super.dispose();
+  void _logUiState(List<CurriculumModel> units) {
+    final previous = _lastLoggedCount;
+    final now = DateTime.now().toIso8601String().substring(11, 23);
+    if (previous != null && previous > 0 && units.length == 0) {
+      developer.log(
+        '[UI][$now] WARNING: units changed $previous -> 0 for '
+        'gradeId=${widget.gradeId} subjectId=${widget.subjectId} semester=$_semesterLabel '
+        '(source: StreamBuilder in SemesterUnitsScreen._SemesterUnitsScreenState.build)',
+        name: 'firestore',
+      );
+    }
+    developer.log(
+      '[UI][$now] rendering ${units.length} unit(s) gradeId=${widget.gradeId} '
+      'subjectId=${widget.subjectId} semester=$_semesterLabel',
+      name: 'firestore',
+    );
+    _lastLoggedCount = units.length;
   }
 
   @override
@@ -90,19 +87,14 @@ class _SemesterUnitsScreenState extends ConsumerState<SemesterUnitsScreen> {
             return ErrorStateView.sourceUnavailable(onRetry: _retry);
           }
           final units = snapshot.data ?? const [];
+          WidgetsBinding.instance.addPostFrameCallback((_) => _logUiState(units));
+
           if (units.isEmpty) {
-            if (!_emptyConfirmed) {
-              WidgetsBinding.instance.addPostFrameCallback((_) => _onEmptyResult());
-              return const Center(child: CircularProgressIndicator());
-            }
             return ErrorStateView(
               message: 'No units published for this semester yet.',
               onRetry: _retry,
             );
           }
-          // Real data arrived — a pending grace-period check is now moot.
-          _emptyGraceTimer?.cancel();
-          _emptyGraceTimer = null;
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: units.length,

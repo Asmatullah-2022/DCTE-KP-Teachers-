@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/firestore_error_logger.dart';
@@ -6,6 +8,10 @@ import '../models/grade_model.dart';
 import '../models/subject_model.dart';
 import '../models/curriculum_model.dart';
 import 'local_curriculum_data.dart';
+
+/// Monotonically increasing ID assigned to each watchUnits() subscription,
+/// so log lines from concurrent/successive listeners are distinguishable.
+int _watchUnitsListenerCounter = 0;
 
 /// Public reads only — write access is restricted to admins by
 /// firestore.rules; see firebase/firestore.rules.
@@ -59,10 +65,18 @@ class CurriculumRepository {
     required String subjectId,
     required String semester,
   }) async* {
+    final listenerId = 'L${++_watchUnitsListenerCounter}';
+    final now = () => DateTime.now().toIso8601String().substring(11, 23);
+    developer.log(
+      '[$listenerId][${now()}] SUBSCRIBE gradeId=$gradeId subjectId=$subjectId semester=$semester',
+      name: 'firestore',
+    );
+
     final local = (await LocalCurriculumData.curriculum())
         .where((c) => c.gradeId == gradeId && c.subjectId == subjectId && c.semester == semester)
         .toList()
       ..sort((a, b) => a.unitNumber.compareTo(b.unitNumber));
+
     final remote = _db
         .collection(AppConstants.collectionCurriculum)
         .where('gradeId', isEqualTo: gradeId)
@@ -71,8 +85,19 @@ class CurriculumRepository {
         .where('needsVerification', isEqualTo: false)
         .orderBy('unitNumber')
         .snapshots()
-        .map((s) => s.docs.map(CurriculumModel.fromDoc).toList());
-    yield* withLocalFallback('CurriculumRepository.watchUnits', remote, local, substituteOnEmpty: false);
+        .map((s) {
+      developer.log(
+        '[$listenerId][${now()}] FIRESTORE -> ${s.docs.length} doc(s) '
+        '[${s.docs.map((d) => d.id).join(", ")}] isFromCache=${s.metadata.isFromCache} '
+        'hasPendingWrites=${s.metadata.hasPendingWrites}',
+        name: 'firestore',
+      );
+      final units = s.docs.map(CurriculumModel.fromDoc).toList();
+      developer.log('[$listenerId][${now()}] REPOSITORY -> ${units.length} unit(s)', name: 'firestore');
+      return units;
+    });
+
+    yield* withLocalFallback('CurriculumRepository.watchUnits[$listenerId]', remote, local, substituteOnEmpty: false);
   }
 
   /// All publicly visible units (needsVerification == false) for a
