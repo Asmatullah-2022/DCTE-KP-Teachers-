@@ -13,6 +13,40 @@ import 'local_curriculum_data.dart';
 /// so log lines from concurrent/successive listeners are distinguishable.
 int _watchUnitsListenerCounter = 0;
 
+/// One observed event from a [CurriculumRepository.watchUnits] subscription
+/// — passed to that method's optional `onDebugEvent` callback so a caller
+/// (e.g. a temporary on-screen debug panel) can observe the EXACT same
+/// stream the UI renders, without running a second query. Purely an
+/// observation hook: it changes nothing about what data flows to the
+/// stream's actual listener.
+class CurriculumStreamEvent {
+  final String listenerId;
+  final DateTime timestamp;
+  final String stage; // 'subscribe' | 'firestore' | 'repository'
+  final String gradeId;
+  final String subjectId;
+  final String semester;
+  final int? docCount;
+  final List<String>? docIds;
+  final bool? isFromCache;
+  final bool? hasPendingWrites;
+  final int? repositoryCount;
+
+  const CurriculumStreamEvent({
+    required this.listenerId,
+    required this.timestamp,
+    required this.stage,
+    required this.gradeId,
+    required this.subjectId,
+    required this.semester,
+    this.docCount,
+    this.docIds,
+    this.isFromCache,
+    this.hasPendingWrites,
+    this.repositoryCount,
+  });
+}
+
 /// Public reads only — write access is restricted to admins by
 /// firestore.rules; see firebase/firestore.rules.
 ///
@@ -64,13 +98,23 @@ class CurriculumRepository {
     required String gradeId,
     required String subjectId,
     required String semester,
+    void Function(CurriculumStreamEvent event)? onDebugEvent,
   }) async* {
     final listenerId = 'L${++_watchUnitsListenerCounter}';
     final now = () => DateTime.now().toIso8601String().substring(11, 23);
+
     developer.log(
       '[$listenerId][${now()}] SUBSCRIBE gradeId=$gradeId subjectId=$subjectId semester=$semester',
       name: 'firestore',
     );
+    onDebugEvent?.call(CurriculumStreamEvent(
+      listenerId: listenerId,
+      timestamp: DateTime.now(),
+      stage: 'subscribe',
+      gradeId: gradeId,
+      subjectId: subjectId,
+      semester: semester,
+    ));
 
     final local = (await LocalCurriculumData.curriculum())
         .where((c) => c.gradeId == gradeId && c.subjectId == subjectId && c.semester == semester)
@@ -86,14 +130,37 @@ class CurriculumRepository {
         .orderBy('unitNumber')
         .snapshots()
         .map((s) {
+      final docIds = s.docs.map((d) => d.id).toList();
       developer.log(
         '[$listenerId][${now()}] FIRESTORE -> ${s.docs.length} doc(s) '
-        '[${s.docs.map((d) => d.id).join(", ")}] isFromCache=${s.metadata.isFromCache} '
+        '[${docIds.join(", ")}] isFromCache=${s.metadata.isFromCache} '
         'hasPendingWrites=${s.metadata.hasPendingWrites}',
         name: 'firestore',
       );
+      onDebugEvent?.call(CurriculumStreamEvent(
+        listenerId: listenerId,
+        timestamp: DateTime.now(),
+        stage: 'firestore',
+        gradeId: gradeId,
+        subjectId: subjectId,
+        semester: semester,
+        docCount: s.docs.length,
+        docIds: docIds,
+        isFromCache: s.metadata.isFromCache,
+        hasPendingWrites: s.metadata.hasPendingWrites,
+      ));
+
       final units = s.docs.map(CurriculumModel.fromDoc).toList();
       developer.log('[$listenerId][${now()}] REPOSITORY -> ${units.length} unit(s)', name: 'firestore');
+      onDebugEvent?.call(CurriculumStreamEvent(
+        listenerId: listenerId,
+        timestamp: DateTime.now(),
+        stage: 'repository',
+        gradeId: gradeId,
+        subjectId: subjectId,
+        semester: semester,
+        repositoryCount: units.length,
+      ));
       return units;
     });
 
